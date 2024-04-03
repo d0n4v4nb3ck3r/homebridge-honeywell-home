@@ -1,3 +1,7 @@
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * server.ts: homebridge-resideo.
+ */
 /* eslint-disable no-console */
 import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
 import { API } from 'homebridge';

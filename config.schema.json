@@ -26,7 +26,6 @@
         "condition": {
           "functionBody": "return (!model.port);"
         }
-
       },
       "port": {
         "type": "string",

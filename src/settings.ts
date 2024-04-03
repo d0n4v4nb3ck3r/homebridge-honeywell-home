@@ -1,3 +1,7 @@
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * settings.ts: homebridge-resideo.
+ */
 import { PlatformConfig } from 'homebridge';
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
@@ -32,7 +36,6 @@ export const DeviceURL = 'https://api.honeywell.com/v2/devices';
 //Config
 export interface ResideoPlatformConfig extends PlatformConfig {
   credentials?: credentials;
-  disablePlugin?: boolean;
   options?: options | Record<string, never>;
   callbackUrl?: string;
   port?: string;
@@ -127,6 +130,8 @@ export type payload = {
   unit?: string;
   state?: string;
 };
+
+export type locations = Array<location>;
 
 // Location
 export type location = {

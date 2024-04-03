@@ -1,3 +1,7 @@
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * leaksensors.ts: homebridge-resideo.
+ */
 import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { skipWhile, take } from 'rxjs/operators';
@@ -58,9 +62,10 @@ export class LeakSensor {
     this.log = this.platform.log;
     this.config = this.platform.config;
     this.hap = this.api.hap;
-
+    this.deviceLogs(device);
+    this.getDeviceRefreshRate(device);
+    this.deviceConfigOptions(device);
     this.deviceContext(accessory);
-    this.deviceLogs();
 
     // this is subject we use to track when we need to POST changes to the Resideo API
     this.doSensorUpdate = new Subject();
@@ -420,10 +425,60 @@ export class LeakSensor {
     }
   }
 
-  async deviceLogs() {
+  async deviceConfigOptions(device: device & devicesConfig): Promise<void> {
+    let config = {};
+    if (device.lock) {
+      config = device.lock || '';
+    }
+    if (device.logging !== undefined) {
+      config['logging'] = device.logging;
+    }
+    if (device.refreshRate !== undefined) {
+      config['refreshRate'] = device.refreshRate;
+    }
+    if (device.lock?.hide_lock !== undefined) {
+      config['hide_lock'] = this.hide_lock;
+    }
+    if (Object.entries(config).length !== 0) {
+      this.infoLog(`Lock: ${this.accessory.displayName} Config: ${JSON.stringify(config)}`);
+    }
+  }
+
+  async getDeviceRefreshRate(device: device & devicesConfig): Promise<void> {
+    if (device.refreshRate) {
+      if (device.refreshRate < 1800) {
+        device.refreshRate = 1800;
+        this.warnLog('Refresh Rate cannot be set to lower the 5 mins, as Lock detail (battery level, etc) are unlikely to change within that period');
+      }
+      this.deviceRefreshRate = this.accessory.context.refreshRate = device.refreshRate;
+      this.debugLog(`Lock: ${this.accessory.displayName} Using Device Config refreshRate: ${this.deviceRefreshRate}`);
+    } else if (this.platform.config.options!.refreshRate) {
+      this.deviceRefreshRate = this.accessory.context.refreshRate = this.platform.config.options!.refreshRate;
+      this.debugLog(`Lock: ${this.accessory.displayName} Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
+    }
+  }
+
+  async deviceLogs(device: device & devicesConfig): Promise<void> {
     this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
     this.deviceLogging = this.device.logging || this.config.options?.logging || 'standard';
-    if (this.debugMode) {
+    if (this.platform.debugMode) {
+      this.deviceLogging = this.accessory.context.logging = 'debugMode';
+      this.debugWarnLog(`Lock: ${this.accessory.displayName} Using Debug Mode Logging: ${this.deviceLogging}`);
+    } else if (device.logging) {
+      this.deviceLogging = this.accessory.context.logging = device.logging;
+      this.debugWarnLog(`Lock: ${this.accessory.displayName} Using Device Config Logging: ${this.deviceLogging}`);
+    } else if (this.platform.config.options?.logging) {
+      this.deviceLogging = this.accessory.context.logging = this.platform.config.options?.logging;
+      this.debugWarnLog(`Lock: ${this.accessory.displayName} Using Platform Config Logging: ${this.deviceLogging}`);
+    } else {
+      this.deviceLogging = this.accessory.context.logging = 'standard';
+      this.debugWarnLog(`Lock: ${this.accessory.displayName} Logging Not Set, Using: ${this.deviceLogging}`);
+    }
+  }
+
+  async deviceLogs() {
+    this.deviceLogging = this.device.logging || this.config.options?.logging || 'standard';
+    if (this.platform.debugMode) {
       this.deviceLogging = 'debugMode';
       this.debugLog(`${this.constructor.name}: ${this.accessory.displayName} Using Debug Mode Logging: ${this.deviceLogging}`);
     } else if (this.device.logging) {

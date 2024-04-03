@@ -1,3 +1,7 @@
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * roomsensorthermostats.ts: homebridge-resideo.
+ */
 import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { ResideoPlatform } from '../platform.js';

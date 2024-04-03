@@ -1,3 +1,7 @@
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * roomsensors.ts: homebridge-resideo.
+ */
 import { Subject, interval } from 'rxjs';
 import { take, skipWhile } from 'rxjs/operators';
 import { ResideoPlatform } from '../platform.js';

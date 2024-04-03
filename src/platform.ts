@@ -1,6 +1,6 @@
-/* Copyright(C) 2017-2023, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
- * protect-platform.ts: homebridge-cloudflared-tunnel platform class.
+ * platform.ts: homebridge-resideo.
  */
 import {
   DeviceURL,
@@ -13,13 +13,14 @@ import {
   accessoryAttribute,
   devicesConfig,
   location,
+  locations,
   resideoDevice,
   sensorAccessory,
 } from './settings.js';
 import { readFile } from 'fs/promises';
 import { request } from 'undici';
 import { readFileSync, writeFileSync } from 'fs';
-import { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge';
+import { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge';
 import { stringify } from 'querystring';
 import { Valve } from './devices/valve.js';
 import { LeakSensor } from './devices/leaksensors.js';
@@ -33,22 +34,24 @@ import { RoomSensorThermostat } from './devices/roomsensorthermostats.js';
  * parse the user config and discover/register accessories with Homebridge.
  */
 export class ResideoPlatform implements DynamicPlatformPlugin {
-
   public accessories: PlatformAccessory[];
   public readonly api: API;
   public readonly log: Logging;
+  protected readonly hap: HAP;
+  public config!: ResideoPlatformConfig;
 
-  locations?: any;
-  firmware!: accessoryAttribute['softwareRevision'];
-  sensorAccessory!: sensorAccessory;
-  version!: string;
+  // Resideo API
   public sensorData = [];
   private refreshInterval!: NodeJS.Timeout;
-  debugMode!: boolean;
-  action!: string;
-  config!: ResideoPlatformConfig;
+  locations?: locations;
+  sensorAccessory!: sensorAccessory;
+  firmware!: accessoryAttribute['softwareRevision'];
+
   platformConfig!: ResideoPlatformConfig['options'];
   platformLogging!: ResideoPlatformConfig['logging'];
+  debugMode!: boolean;
+  version!: string;
+  action!: string;
 
   constructor(
     log: Logging,
@@ -57,6 +60,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   ) {
     this.accessories = [];
     this.api = api;
+    this.hap = this.api.hap;
     this.log = log;
     // only load if configured
     if (!config) {
@@ -65,11 +69,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     // Plugin options into our config variables.
     this.config = {
-      platform: 'ResideoPlatform',
+      platform: 'Resideo',
       credentials: config.credentials,
       options: config.options,
     };
-    this.platformLogging = this.config.options?.logging ?? 'standard';
     this.platformConfigOptions();
     this.platformLogs();
     this.getVersion();
@@ -116,25 +119,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.log.error('Missing Access Token. Re-Link Your Resideo Account.');
       }
     });
-  }
-
-  async platformConfigOptions() {
-    const platformConfig: ResideoPlatformConfig['options'] = {};
-    if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging;
-      }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate;
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.pushRate = this.config.options.pushRate;
-      }
-      if (Object.entries(platformConfig).length !== 0) {
-        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
-      }
-      this.platformConfig = platformConfig;
-    }
   }
 
   /**
@@ -1035,8 +1019,28 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async platformConfigOptions() {
+    const platformConfig: ResideoPlatformConfig['options'] = {};
+    if (this.config.options) {
+      if (this.config.options.logging) {
+        platformConfig.logging = this.config.options.logging;
+      }
+      if (this.config.options.refreshRate) {
+        platformConfig.refreshRate = this.config.options.refreshRate;
+      }
+      if (this.config.options.pushRate) {
+        platformConfig.pushRate = this.config.options.pushRate;
+      }
+      if (Object.entries(platformConfig).length !== 0) {
+        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
+      }
+      this.platformConfig = platformConfig;
+    }
+  }
+
   async platformLogs() {
     this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
+    this.platformLogging = this.config.options?.logging ?? 'standard';
     if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
       this.platformLogging = this.config.options.logging;
       if (this.platformLogging.includes('debug')) {
