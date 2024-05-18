@@ -68,7 +68,9 @@ export class Valve extends deviceBase {
     this.Valve.Service.getCharacteristic(this.hap.Characteristic.Active).onSet(this.setActive.bind(this));
 
     // InUse
-    this.Valve.Service.getCharacteristic(this.hap.Characteristic.InUse).onGet(() => { return this.Valve.InUse });
+    this.Valve.Service.getCharacteristic(this.hap.Characteristic.InUse).onGet(() => {
+      return this.Valve.InUse;
+    });
 
     // Set valveType
     this.Valve.Service.setCharacteristic(this.hap.Characteristic.ValveType, this.valveType);
@@ -130,9 +132,8 @@ export class Valve extends deviceBase {
       this.Valve.InUse = this.hap.Characteristic.InUse.NOT_IN_USE;
     }
     if (this.Valve.InUse !== this.accessory.context.InUse) {
-
       this.successLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`);
-      this.Valve.InUse
+      this.Valve.InUse;
     }
   }
 
@@ -258,7 +259,7 @@ export class Valve extends deviceBase {
       default:
         this.valveType = this.hap.Characteristic.ValveType.GENERIC_VALVE;
     }
-    accessory.context.valveType = this.valveType
+    accessory.context.valveType = this.valveType;
   }
 
   async apiError(e: any): Promise<void> {

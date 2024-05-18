@@ -90,8 +90,8 @@ export class RoomSensorThermostat extends deviceBase {
 
     // get the LightBulb service if it exists, otherwise create a new LightBulb service
     // you can create multiple services for each accessory
-    (this.Thermostat.Service = this.accessory.getService(this.hap.Service.Thermostat) || this.accessory.addService(this.hap.Service.Thermostat)),
-      `${accessory.displayName} Thermostat`;
+    (this.Thermostat.Service = this.accessory.getService(this.hap.Service.Thermostat)
+      || this.accessory.addService(this.hap.Service.Thermostat)), `${accessory.displayName} Thermostat`;
 
     // To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
     // when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
@@ -161,9 +161,11 @@ export class RoomSensorThermostat extends deviceBase {
 
     this.Thermostat.Service.setCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState);
 
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature).onSet(this.setHeatingThresholdTemperature.bind(this));
+    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature)
+      .onSet(this.setHeatingThresholdTemperature.bind(this));
 
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature).onSet(this.setCoolingThresholdTemperature.bind(this));
+    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature)
+      .onSet(this.setCoolingThresholdTemperature.bind(this));
 
     this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.TargetTemperature).onSet(this.setTargetTemperature.bind(this));
 
@@ -384,7 +386,8 @@ export class RoomSensorThermostat extends deviceBase {
                   this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} roomsensors: ${JSON.stringify(roomsensors)}`);
                   for (const accessories of rooms) {
                     if (accessories) {
-                      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} accessories: ${JSON.stringify(accessories)}`);
+                      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+                        + ` accessories: ${JSON.stringify(accessories)}`);
                       for (const sensorAccessory of accessories.accessories) {
                         if (sensorAccessory.accessoryAttribute) {
                           if (sensorAccessory.accessoryAttribute.type) {
@@ -550,7 +553,8 @@ export class RoomSensorThermostat extends deviceBase {
             + ` HeatingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
               Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`);
       }
-      this.successLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} set request (${JSON.stringify(payload)}) to Resideo API.`);
+      this.successLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` set request (${JSON.stringify(payload)}) to Resideo API.`);
 
       // Make the API request
       const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
@@ -612,21 +616,23 @@ export class RoomSensorThermostat extends deviceBase {
    */
   async updateHomeKitCharacteristics(): Promise<void> {
     if (this.Thermostat.TemperatureDisplayUnits === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TemperatureDisplayUnits, this.Thermostat.TemperatureDisplayUnits);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
+        + ` TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
     }
     if (this.Thermostat.CurrentTemperature === undefined) {
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.Thermostat.CurrentTemperature}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.CurrentTemperature, this.Thermostat.CurrentTemperature);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` CurrentTemperature: ${this.Thermostat.CurrentTemperature}`);
+        + ` CurrentTemperature: ${this.Thermostat.CurrentTemperature}`);
     }
     if (this.HumiditySensor?.CurrentRelativeHumidity === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor?.CurrentRelativeHumidity}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` CurrentRelativeHumidity: ${this.HumiditySensor?.CurrentRelativeHumidity}`);
     } else {
       this.HumiditySensor.Service.updateCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity, this.HumiditySensor.CurrentRelativeHumidity);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
@@ -637,35 +643,39 @@ export class RoomSensorThermostat extends deviceBase {
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TargetTemperature, this.Thermostat.TargetTemperature);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` TargetTemperature: ${this.Thermostat.TargetTemperature}`);
+        + ` TargetTemperature: ${this.Thermostat.TargetTemperature}`);
     }
     if (this.Thermostat.HeatingThresholdTemperature === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature, this.Thermostat.HeatingThresholdTemperature);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
         + ` HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`);
     }
     if (this.Thermostat.CoolingThresholdTemperature === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature, this.Thermostat.CoolingThresholdTemperature);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
+        + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
     }
     if (this.Thermostat.TargetHeatingCoolingState === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TargetHeatingCoolingState, this.Thermostat.TargetHeatingCoolingState);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
+        + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     }
     if (this.Thermostat.CurrentHeatingCoolingState === undefined) {
-      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CurrentHeatingCoolingState: ${this.Thermostat.CurrentHeatingCoolingState}`);
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` CurrentHeatingCoolingState: ${this.Thermostat.CurrentHeatingCoolingState}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState);
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-      + ` CurrentHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
+        + ` CurrentHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     }
   }
 

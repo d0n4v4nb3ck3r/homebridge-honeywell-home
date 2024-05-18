@@ -104,8 +104,8 @@ export class RoomSensors extends deviceBase {
 
     // get the BatteryService service if it exists, otherwise create a new Battery service
     // you can create multiple services for each accessory
-    (this.Battery.Service = this.accessory.getService(this.hap.Service.Battery) || this.accessory.addService(this.hap.Service.Battery)),
-      `${accessory.displayName} Battery`;
+    (this.Battery.Service = this.accessory.getService(this.hap.Service.Battery)
+      || this.accessory.addService(this.hap.Service.Battery)), `${accessory.displayName} Battery`;
 
     // To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
     // when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
@@ -126,8 +126,8 @@ export class RoomSensors extends deviceBase {
     } else if (!this.TemperatureSensor?.Service) {
       this.debugLog(`Room Sensor: ${accessory.displayName} Add Temperature Sensor Service`);
       (this.TemperatureSensor!.Service =
-        this.accessory.getService(this.hap.Service.TemperatureSensor) || this.accessory.addService(this.hap.Service.TemperatureSensor)),
-        `${accessory.displayName} Temperature Sensor`;
+        this.accessory.getService(this.hap.Service.TemperatureSensor)
+        || this.accessory.addService(this.hap.Service.TemperatureSensor)), `${accessory.displayName} Temperature Sensor`;
 
       this.TemperatureSensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Temperature Sensor`);
 
@@ -153,8 +153,8 @@ export class RoomSensors extends deviceBase {
     } else if (!this.OccupancySensor?.Service) {
       this.debugLog(`Room Sensor: ${accessory.displayName} Add Occupancy Sensor Service`);
       (this.OccupancySensor!.Service =
-        this.accessory.getService(this.hap.Service.OccupancySensor) || this.accessory.addService(this.hap.Service.OccupancySensor)),
-        `${accessory.displayName} Occupancy Sensor`;
+        this.accessory.getService(this.hap.Service.OccupancySensor)
+        || this.accessory.addService(this.hap.Service.OccupancySensor)), `${accessory.displayName} Occupancy Sensor`;
 
       this.OccupancySensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Occupancy Sensor`);
     } else {
@@ -169,8 +169,8 @@ export class RoomSensors extends deviceBase {
     } else if (!this.HumiditySensor?.Service) {
       this.debugLog(`Room Sensor: ${accessory.displayName} Add Humidity Sensor Service`);
       (this.HumiditySensor!.Service =
-        this.accessory.getService(this.hap.Service.HumiditySensor) || this.accessory.addService(this.hap.Service.HumiditySensor)),
-        `${accessory.displayName} Humidity Sensor`;
+        this.accessory.getService(this.hap.Service.HumiditySensor)
+        || this.accessory.addService(this.hap.Service.HumiditySensor)), `${accessory.displayName} Humidity Sensor`;
 
       this.HumiditySensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Humidity Sensor`);
 
@@ -274,7 +274,8 @@ export class RoomSensors extends deviceBase {
           this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor?.CurrentTemperature}`);
         } else {
           this.TemperatureSensor.Service.updateCharacteristic(this.hap.Characteristic.CurrentTemperature, this.TemperatureSensor.CurrentTemperature);
-          this.debugLog(`Room Sensor: ${this.accessory.displayName} updateCharacteristic CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}`);
+          this.debugLog(`Room Sensor: ${this.accessory.displayName} updateCharacteristic`
+            + ` CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}`);
         }
       }
     }
@@ -290,8 +291,10 @@ export class RoomSensors extends deviceBase {
       if (this.HumiditySensor?.CurrentRelativeHumidity === undefined) {
         this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor?.CurrentRelativeHumidity}`);
       } else {
-        this.HumiditySensor.Service?.updateCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity, this.HumiditySensor.CurrentRelativeHumidity);
-        this.debugLog(`Room Sensor: ${this.accessory.displayName}` + ` updateCharacteristic CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`);
+        this.HumiditySensor.Service?.updateCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity,
+          this.HumiditySensor.CurrentRelativeHumidity);
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} updateCharacteristic`
+          + ` CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`);
       }
     }
   }

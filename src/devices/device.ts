@@ -5,7 +5,6 @@
 import { ResideoPlatform } from '../platform.js';
 import { API, HAP, Logging, PlatformAccessory } from 'homebridge';
 import { ResideoPlatformConfig, resideoDevice, location, devicesConfig } from '../settings.js';
-import { interval } from 'rxjs';
 
 export abstract class deviceBase {
   public readonly api: API;
@@ -93,7 +92,8 @@ export abstract class deviceBase {
     }
     if (device.delayBetweenRetries) {
       this.deviceDelayBetweenRetries = device.delayBetweenRetries * 1000;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Delay Between Retries: ${this.deviceDelayBetweenRetries}`);
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName}`
+        + ` Using Device Delay Between Retries: ${this.deviceDelayBetweenRetries}`);
     } else {
       this.deviceDelayBetweenRetries = 3000; // Delay between retries in milliseconds
       this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Delay Between Retries Not Set,`
