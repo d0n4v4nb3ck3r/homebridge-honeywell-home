@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [2.1.0](https://github.com/donavanbecker/homebridge-resideo/releases/tag/v2.1.0) (2024-05-XX)
+
+### What's Changes
+- Major refactoring of resideo `device` files.
+- Housekeeping and updated dependencies.
+
+**Full Changelog**: https://github.com/donavanbecker/homebridge-resideo/compare/v2.0.0..v2.1.0
+
 ## [2.0.0](https://github.com/donavanbecker/homebridge-resideo/releases/tag/v2.0.0) (2024-01-31)
 
 ### What's Changes
