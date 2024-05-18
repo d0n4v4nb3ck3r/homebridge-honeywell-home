@@ -65,6 +65,9 @@ export interface devicesConfig extends resideoDevice {
   external?: boolean;
   logging?: string;
   refreshRate?: number;
+  updateRate?: number;
+  maxRetries?: number;
+  delayBetweenRetries?: number;
   retry?: boolean;
   firmware?: string;
 }

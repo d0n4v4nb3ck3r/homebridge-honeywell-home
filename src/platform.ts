@@ -308,15 +308,15 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
    * this method discovers the rooms at each location
    */
   public async getCurrentSensorData(
+    location: location,
     device: resideoDevice & devicesConfig,
     group: T9groups,
-    locationId: location['locationID'],
   ) {
     if (!this.sensorData[device.deviceID] || this.sensorData[device.deviceID].timestamp < Date.now()) {
       const { body, statusCode } = await request(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
         method: 'GET',
         query: {
-          'locationId': locationId,
+          'locationId': location.locationID,
           'apikey': this.config.credentials?.consumerKey,
         },
         headers: {
@@ -328,11 +328,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       await this.statusCode(statusCode, action);
       const response: any = await body.json();
       this.debugLog(`(getCurrentSensorData) Response: ${JSON.stringify(response)}`);
-      /*const response: any = await this.axios.get(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
-        params: {
-          locationId: locationId,
-        },
-      });*/
 
       this.sensorData[device.deviceID] = {
         timestamp: Date.now() + 45000,
@@ -360,10 +355,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   /**
    * this method discovers the firmware Veriosn for T9 Thermostats
    */
-  public async getSoftwareRevision(locationId: location['locationID'], device: resideoDevice & devicesConfig) {
+  public async getSoftwareRevision(location: location, device: resideoDevice & devicesConfig) {
     if (device.deviceModel.startsWith('T9') && device.groups) {
       for (const group of device.groups) {
-        const roomsensors = await this.getCurrentSensorData(device, group, locationId);
+        const roomsensors = await this.getCurrentSensorData(location, device, group);
         if (device.thermostat?.roompriority?.deviceType) {
           if (roomsensors.length !== 0) {
             this.infoLog(`Total Rooms Found: ${roomsensors.length}`);
@@ -385,11 +380,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
                 + `${sensorAccessory.accessoryAttribute.name}, softwareRevision: ${sensorAccessory.accessoryAttribute.softwareRevision}`);
                 return sensorAccessory.accessoryAttribute.softwareRevision;
               } else {
-                this.debugLog(`No Thermostat ${device} ${group} ${locationId}`);
+                this.debugLog(`No Thermostat ${device} ${group} ${location.locationID}`);
               }
             }
           } else {
-            this.debugLog(`No accessories ${device} ${group} ${locationId}`);
+            this.debugLog(`No accessories ${device} ${group} ${location.locationID}`);
           }
         }
       }
@@ -417,12 +412,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
           this.debugLog(`Total Devices Found at ${location.name}: ${location.devices.length}`);
         }
         const locationId = location.locationID;
+        this.debugLog(`Location ID: ${locationId}`);
         const deviceLists = location.devices;
         if (!this.config.options?.devices) {
           this.debugLog(`No Resideo Device Config: ${JSON.stringify(this.config.options?.devices)}`);
           const devices = deviceLists.map((v: any) => v);
           for (const device of devices) {
-            await this.deviceClass(device, location, locationId);
+            await this.deviceClass(location, device);
           }
         } else {
           this.debugLog(`Resideo Device Config Set: ${JSON.stringify(this.config.options?.devices)}`);
@@ -437,7 +433,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
           const devices = mergeBydeviceID(deviceLists, deviceConfigs);
           this.debugLog(`Resideo Devices: ${JSON.stringify(devices)}`);
           for (const device of devices) {
-            await this.deviceClass(device, location, locationId);
+            await this.deviceClass(location, device);
           }
         }
       }
@@ -446,23 +442,23 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private async deviceClass(device: resideoDevice & devicesConfig, location: any, locationId: any) {
+  private async deviceClass(location: location, device: resideoDevice & devicesConfig ) {
     switch (device.deviceClass) {
       case 'ShutoffValve':
         this.debugLog(`Discovered ${device.userDefinedDeviceName} ${device.deviceClass} @ ${location.name}`);
-        this.Valve(device, locationId);
+        this.createValve(location, device);
         break;
       case 'LeakDetector':
         this.debugLog(`Discovered ${device.userDefinedDeviceName} ${device.deviceClass} @ ${location.name}`);
-        this.Leak(device, locationId);
+        this.createLeak(location, device);
         break;
       case 'Thermostat':
         this.debugLog(`Discovered ${device.userDefinedDeviceName} ${device.deviceClass} (${device.deviceModel}) @ ${location.name}`);
-        await this.createThermostat(location, device, locationId);
+        await this.createThermostat(location, device);
         if (device.deviceModel.startsWith('T9')) {
           try {
             this.debugLog(`Discovering Room Sensor(s) for ${device.userDefinedDeviceName} ${device.deviceClass} (${device.deviceModel})`);
-            await this.discoverRoomSensors(location.locationID, device);
+            await this.discoverRoomSensors(location, device);
           } catch (e: any) {
             this.action = 'Find Room Sensor(s)';
             this.apiError(e);
@@ -475,13 +471,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private async discoverRoomSensors(locationId: location['locationID'], device: resideoDevice & devicesConfig) {
+  private async discoverRoomSensors(location: location, device: resideoDevice & devicesConfig) {
     // get the devices at each location
     this.roomsensordisplaymethod(device);
     if (device.groups) {
       this.debugLog(`Discovered ${device.groups.length} Group(s) for ${device.userDefinedDeviceName} ${device.deviceClass} (${device.deviceModel})`);
       for (const group of device.groups) {
-        const roomsensors = await this.getCurrentSensorData(device, group, locationId);
+        const roomsensors = await this.getCurrentSensorData(location, device, group);
         for (const accessories of roomsensors) {
           if (accessories) {
             for (const key in accessories) {
@@ -497,8 +493,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
                       sensorAccessory.accessoryAttribute.model = '4352';
                     }
                     sensorAccessory.deviceID = `${sensorAccessory.accessoryId}${sensorAccessory.roomId}${sensorAccessory.accessoryAttribute.model}`;
-                    this.createRoomSensors(device, locationId, sensorAccessory, group);
-                    this.createRoomSensorThermostat(device, locationId, sensorAccessory, group);
+                    this.createRoomSensors(location, device, group, sensorAccessory);
+                    this.createRoomSensorThermostat(location, device, group, sensorAccessory);
                   }
                 }
               }
@@ -527,7 +523,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   private async createThermostat(
     location: location,
     device: resideoDevice & devicesConfig,
-    locationId: location['locationID'],
   ) {
     const uuid = this.api.hap.uuid.generate(`${device.deviceID}-${device.deviceClass}`);
 
@@ -549,7 +544,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.api.updatePlatformAccessories([existingAccessory]);
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new Thermostats(this, existingAccessory, locationId, device);
+        new Thermostats(this, existingAccessory, location, device);
         this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${existingAccessory.UUID})`);
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
@@ -570,7 +565,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       accessory.context.model = device.deviceModel;
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new Thermostats(this, accessory, locationId, device);
+      new Thermostats(this, accessory, location, device);
       this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
@@ -584,7 +579,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private Leak(device: resideoDevice & devicesConfig, locationId: location['locationID']) {
+  private createLeak(location: location, device: resideoDevice & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(`${device.deviceID}-${device.deviceClass}`);
 
     // see if an accessory with the same uuid has already been registered and restored from
@@ -605,7 +600,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new LeakSensor(this, existingAccessory, locationId, device);
+        new LeakSensor(this, existingAccessory, location, device);
         this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${existingAccessory.UUID})`);
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
@@ -629,7 +624,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // accessory.context.firmwareRevision = findaccessories.accessoryAttribute.softwareRevision;
       // create the accessory handler for the newly create accessory
       // this is imported from `/Sensors/leakSensors.ts`
-      new LeakSensor(this, accessory, locationId, device);
+      new LeakSensor(this, accessory, location, device);
       this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
@@ -643,7 +638,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private Valve(device: resideoDevice & devicesConfig, locationId: location['locationID']) {
+  private createValve(location: location, device: resideoDevice & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(`${device.deviceID}-${device.deviceClass}`);
 
     // see if an accessory with the same uuid has already been registered and restored from
@@ -664,7 +659,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new Valve(this, existingAccessory, locationId, device);
+        new Valve(this, existingAccessory, location, device);
         this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${existingAccessory.UUID})`);
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
@@ -688,7 +683,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // accessory.context.firmwareRevision = findaccessories.accessoryAttribute.softwareRevision;
       // create the accessory handler for the newly create accessory
       // this is imported from `/Sensors/valve.ts`
-      new Valve(this, accessory, locationId, device);
+      new Valve(this, accessory, location, device);
       this.debugLog(`${device.deviceClass} uuid: ${device.deviceID}-${device.deviceClass} (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
@@ -703,10 +698,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   private createRoomSensors(
+    location: location,
     device: resideoDevice & devicesConfig,
-    locationId: location['locationID'],
-    sensorAccessory: sensorAccessory,
     group: T9groups,
+    sensorAccessory: sensorAccessory,
   ) {
     // Room Sensor(s)
     const uuid = this.api.hap.uuid.generate(`${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor`);
@@ -726,7 +721,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new RoomSensors(this, existingAccessory, locationId, device, sensorAccessory, group);
+        new RoomSensors(this, existingAccessory, location, device, sensorAccessory, group);
         this.debugLog(
           `${sensorAccessory.accessoryAttribute.type}` +
           ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${existingAccessory.UUID})`,
@@ -752,7 +747,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
       // create the accessory handler for the newly create accessory
       // this is imported from `roomSensor.ts`
-      new RoomSensors(this, accessory, locationId, device, sensorAccessory, group);
+      new RoomSensors(this, accessory, location, device, sensorAccessory, group);
       this.debugLog(
         `${sensorAccessory.accessoryAttribute.type}` +
         ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${accessory.UUID})`,
@@ -773,10 +768,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   private createRoomSensorThermostat(
+    location: location,
     device: resideoDevice & devicesConfig,
-    locationId: location['locationID'],
-    sensorAccessory: sensorAccessory,
     group: T9groups,
+    sensorAccessory: sensorAccessory,
   ) {
     const uuid = this.api.hap.uuid.generate(`${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensorThermostat`);
 
@@ -798,7 +793,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new RoomSensorThermostat(this, existingAccessory, locationId, device, sensorAccessory, group);
+        new RoomSensorThermostat(this, existingAccessory, location, device, sensorAccessory, group);
         this.debugLog(
           `${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
           ` ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensorThermostat, (${existingAccessory.UUID})`,
@@ -824,7 +819,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new RoomSensorThermostat(this, accessory, locationId, device, sensorAccessory, group);
+      new RoomSensorThermostat(this, accessory, location, device, sensorAccessory, group);
       this.debugLog(
         `${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
         ` ${sensorAccessory.accessoryAttribute.name}-${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-` +
