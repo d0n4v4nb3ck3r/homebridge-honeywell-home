@@ -2,9 +2,9 @@
  *
  * device.ts: homebridge-resideo.
  */
-import { ResideoPlatform } from '../platform.js';
-import { API, HAP, Logging, PlatformAccessory } from 'homebridge';
-import { ResideoPlatformConfig, resideoDevice, location, devicesConfig } from '../settings.js';
+import type { ResideoPlatform } from '../platform.js';
+import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
+import type { ResideoPlatformConfig, resideoDevice, location, devicesConfig } from '../settings.js';
 
 export abstract class deviceBase {
   public readonly api: API;

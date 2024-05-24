@@ -6,9 +6,11 @@ import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { deviceBase } from './device.js';
 import { debounceTime, skipWhile, take, tap } from 'rxjs/operators';
-import { ResideoPlatform } from '../platform.js';
-import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
-import { devicesConfig, DeviceURL, location, resideoDevice, payload } from '../settings.js';
+import { DeviceURL } from '../settings.js';
+
+import type { ResideoPlatform } from '../platform.js';
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import type { devicesConfig, location, resideoDevice, payload } from '../settings.js';
 
 /**
  * Platform Accessory

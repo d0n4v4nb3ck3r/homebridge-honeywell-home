@@ -2,13 +2,14 @@
  *
  * roomsensors.ts: homebridge-resideo.
  */
+import { toCelsius } from '../utils.js';
 import { Subject, interval } from 'rxjs';
 import { deviceBase } from './device.js';
 import { take, skipWhile } from 'rxjs/operators';
-import { ResideoPlatform } from '../platform.js';
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import { devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
-import { toCelsius } from '../utils.js';
+
+import type { ResideoPlatform } from '../platform.js';
+import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
 
 /**
  * Platform Accessory

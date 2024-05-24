@@ -4,7 +4,7 @@
  */
 /* eslint-disable no-console */
 import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
-import { API } from 'homebridge';
+import type { API } from 'homebridge';
 //import { AuthorizeURL, TokenURL } from '../settings.js';
 //import { request } from 'undici';
 import { AuthorizeURL, PLATFORM_NAME } from '../settings.js';

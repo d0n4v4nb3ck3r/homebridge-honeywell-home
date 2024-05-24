@@ -3,12 +3,14 @@
  * leaksensors.ts: homebridge-resideo.
  */
 import { request } from 'undici';
-import { interval, Subject } from 'rxjs';
-import { skipWhile, take } from 'rxjs/operators';
-import { ResideoPlatform } from '../platform.js';
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import { DeviceURL, devicesConfig, location, resideoDevice } from '../settings.js';
 import { deviceBase } from './device.js';
+import { interval, Subject } from 'rxjs';
+import { DeviceURL } from '../settings.js';
+import { skipWhile, take } from 'rxjs/operators';
+
+import type { ResideoPlatform } from '../platform.js';
+import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import type { devicesConfig, location, resideoDevice } from '../settings.js';
 
 /**
  * Platform Accessory

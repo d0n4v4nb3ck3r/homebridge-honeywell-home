@@ -5,11 +5,13 @@
 import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { deviceBase } from './device.js';
-import { ResideoPlatform } from '../platform.js';
+import { DeviceURL } from '../settings.js';
 import { debounceTime, take, tap, skipWhile } from 'rxjs/operators';
-import { CharacteristicValue, Service, PlatformAccessory } from 'homebridge';
 import { HomeKitModes, ResideoModes, toFahrenheit, toCelsius } from '../utils.js';
-import { DeviceURL, Fan, devicesConfig, location, resideoDevice, payload, Priority } from '../settings.js';
+
+import type { ResideoPlatform } from '../platform.js';
+import type { CharacteristicValue, Service, PlatformAccessory } from 'homebridge';
+import type { Fan, devicesConfig, location, resideoDevice, payload, Priority } from '../settings.js';
 
 /**
  * Platform Accessory
