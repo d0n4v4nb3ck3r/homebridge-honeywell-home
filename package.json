@@ -24,11 +24,12 @@
   "main": "dist/index.js",
   "scripts": {
     "check": "npm install && npm outdated",
+    "copy-ui-html": "cpy ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/ --flat",
     "update": "ncu -u && npm update && npm install",
     "lint": "eslint src/**/*.ts",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
-    "build": "rimraf ./dist && tsc",
+    "build": "rimraf ./dist && tsc && npm run copy-ui-html",
     "postpublish": "npm run clean",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
     "clean": "rimraf ./dist"
