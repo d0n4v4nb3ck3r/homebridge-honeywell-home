@@ -1,7 +1,7 @@
 {
   "displayName": "Resideo",
   "name": "homebridge-resideo",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "The Resideo plugin allows you to access your Resideo device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -18,23 +18,21 @@
     "url": "https://github.com/donavanbecker/homebridge-resideo/issues"
   },
   "engines": {
-    "homebridge": "^1.7.0",
-    "node": "^18 || ^20"
+    "homebridge": "^1.8.2",
+    "node": "^18 || ^20 || ^22"
   },
   "main": "dist/index.js",
   "scripts": {
     "check": "npm install && npm outdated",
     "copy-ui-html": "cpy ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/ --flat",
     "update": "ncu -u && npm update && npm install",
-    "update dependencies": "npm run check && npm run update",
-    "lint": "eslint src/**.ts",
+    "lint": "eslint src/**/*.ts",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "rimraf ./dist && tsc && npm run copy-ui-html",
     "postpublish": "npm run clean",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
-    "clean": "rimraf ./dist",
-    "test": "eslint src/**.ts"
+    "clean": "rimraf ./dist"
   },
   "funding": [
     {
@@ -67,20 +65,23 @@
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
     "rxjs": "^7.8.1",
-    "undici": "^6.14.1"
+    "undici": "^6.18.1"
   },
   "devDependencies": {
-    "@types/node": "^20.12.7",
-    "@typescript-eslint/eslint-plugin": "^7.7.1",
-    "@typescript-eslint/parser": "^7.7.1",
-    "cpy-cli": "^5.0.0",
-    "eslint": "^8.56.0",
-    "homebridge": "^1.8.1",
-    "homebridge-config-ui-x": "^4.56.2",
-    "nodemon": "^3.1.0",
+    "@eslint/js": "^9.3.0",
+    "@stylistic/eslint-plugin": "^2.1.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^20.12.12",
+    "eslint": "^9.3.0",
+    "globals": "^15.3.0",
+    "homebridge": "^1.8.2",
+    "homebridge-config-ui-x": "4.56.2",
+    "nodemon": "^3.1.1",
     "npm-check-updates": "^16.14.20",
-    "rimraf": "^5.0.5",
+    "cpy-cli": "^5.0.0",
+    "rimraf": "^5.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.0.0-alpha.16"
   }
 }

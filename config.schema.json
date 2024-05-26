@@ -14,13 +14,29 @@
         "title": "Name",
         "default": "Resideo"
       },
+      "callbackUrl": {
+        "type": "string",
+        "title": "Login UI Callback URL",
+        "description": "Callback URL for the Homebridge Resideo UI. Default is http://{hostname}:8585/auth.",
+        "format": "uri",
+        "pattern": "^https?://",
+        "x-schema-form": {
+          "type": "hostname"
+        },
+        "condition": {
+          "functionBody": "return (!model.port);"
+        }
+      },
       "port": {
         "type": "string",
         "title": "Login UI Port",
-        "default": "8585",
+        "placeholder": "8585",
         "description": "Port for the Homebridge Resideo UI. Default is 8585.",
         "x-schema-form": {
           "type": "number"
+        },
+        "condition": {
+          "functionBody": "return (!model.callbackUrl);"
         }
       },
       "credentials": {
@@ -30,21 +46,21 @@
             "title": "Consumer Key",
             "type": "string",
             "x-schema-form": {
-              "type": "password"
+              "type": "consumerKey"
             }
           },
           "consumerSecret": {
             "title": "Consumer Secret",
             "type": "string",
             "x-schema-form": {
-              "type": "password"
+              "type": "customerSecret"
             }
           },
           "refreshToken": {
             "title": "Refresh Token",
             "type": "string",
             "x-schema-form": {
-              "type": "password"
+              "type": "refreshToken"
             }
           },
           "notice": {
@@ -565,6 +581,7 @@
           "notitle": true
         },
         "options.logging",
+        "callbackUrl",
         "port"
       ]
     }

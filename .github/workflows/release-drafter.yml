@@ -2,8 +2,10 @@ name: Release Drafter
 
 on:
   push:
-    branches:
-      - latest
+    branches: [latest]
+  pull_request: # required for autolabeler
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 jobs:
   release-drafter:
