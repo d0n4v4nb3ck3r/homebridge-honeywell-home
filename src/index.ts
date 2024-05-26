@@ -1,6 +1,6 @@
-/* Copyright(C) 2017-2023, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+/* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
- * index.ts: homebridge-resideo plugin registration.
+ * index.ts: homebridge-resideo.
  */
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { API } from 'homebridge';

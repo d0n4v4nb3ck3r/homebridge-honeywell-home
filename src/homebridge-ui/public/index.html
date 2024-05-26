@@ -14,9 +14,9 @@
          Give your application a name, and enter the 'Callback URL' exactly as it is displayed below.
          <br>
          <div class="input-group mt-3">
-            <input type="text" class="form-control" readonly id="copyMe">
+            <input type="text" class="form-control" disabled id="copyIntroCallbackUrl">
             <div class="input-group-append">
-               <button class="btn btn-primary m-0 py-0 px-3" onclick="copyMyText()" type="button">
+               <button class="btn btn-primary m-0 py-0 px-3" onclick="copyCallbackUrl()" type="button">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor"
                      class="mb-1 bi bi-clipboard" viewBox="0 0 16 16">
                      <path
@@ -48,18 +48,16 @@
       Support
    </button>
 </div>
-<div id="disabledBanner" class="alert alert-secondary mb-0 mt-3" role="alert" style="display: none;">
-   Plugin is currently disabled
-   <button id="disabledEnable" type="button" class="btn btn-link p-0 m-0 float-right">
-      Enable
-   </button>
-</div>
 <div id="pageAccount" class="mt-4" style="display: none;">
    <div class="alert alert-warning" style="display: none;" id="validateForm">
       Please enter both values
    </div>
    <div class="alert alert-success" style="display: none;" id="linkSuccess">
       Config saved, please close this window and restart Homebridge
+   </div>
+   <div class="form-group">
+      <label for="inputConsumerUrl">Callback URL <span class="text-danger">*</span></label>
+      <input type="text" class="form-control" disabled id="inputConsumerUrl">
    </div>
    <div class="form-group">
       <label for="inputConsumerKey">Consumer Key <span class="text-danger">*</span></label>
@@ -134,8 +132,8 @@
    <h5>Features</h5>
    <ul>
       <li>
-         <a href="https://github.com/donavanbecker/homebridge-resideo/wiki/Supported-Devices"
-            target="_blank">Supported Devices</a>
+         <a href="https://github.com/donavanbecker/homebridge-resideo/wiki/Supported-Devices" target="_blank">Supported
+            Devices</a>
       </li>
       <li>
          <a href="https://github.com/donavanbecker/homebridge-resideo/wiki/Fan-Modes" target="_blank">Fan
@@ -172,6 +170,8 @@
       try {
          const currentConfig = await homebridge.getPluginConfig()
          const hostname = window.location.hostname
+         const protocol = location.protocol + '//'
+         const port = (location.port ? ':' + location.port : '')
          try {
             await homebridge.request('Start Resideo Login Server')
          } catch (err) {
@@ -182,6 +182,7 @@
             try {
                if (event.data.access && event.data.refresh) {
                   this.popup.close()
+                  currentConfig[0].callbackUrl = event.data.callbackUrl
                   currentConfig[0].credentials = {
                      consumerKey: event.data.key,
                      consumerSecret: event.data.secret,
@@ -203,14 +204,15 @@
                homebridge.toast.error('Try again, or see the console message for info.', 'Error')
             }
          })
-         copyMyText = () => {
-            var textToCopy = document.getElementById("copyMe");
+         copyCallbackUrl = () => {
+            var textToCopy = document.getElementById("copyIntroCallbackUrl");
             textToCopy.select();
             document.execCommand("copy");
          }
          linkAccount = async () => {
             document.getElementById('validateForm').style.display = 'none'
             if (
+               !document.getElementById('inputConsumerUrl').value ||
                !document.getElementById('inputConsumerKey').value ||
                !document.getElementById('inputConsumerSecret').value
             ) {
@@ -221,13 +223,23 @@
             const h = 700;
             const y = window.top.outerHeight / 2 + window.top.screenY - (h / 2);
             const x = window.top.outerWidth / 2 + window.top.screenX - (w / 2);
-            const urlToOpen = 'http://' + hostname + ':8585/start?' +
-               'key=' + document.getElementById('inputConsumerKey').value +
-               '&secret=' + document.getElementById('inputConsumerSecret').value +
-               '&host=' + encodeURI(hostname);
+            let urlToOpen
+            const port = currentConfig[0].port || '8585'
+            const userProvidedUrl = document.getElementById('inputConsumerUrl').value
+            if (userProvidedUrl) {
+               urlToOpen = userProvidedUrl + '/start?' +
+                  'key=' + document.getElementById('inputConsumerKey').value +
+                  '&secret=' + document.getElementById('inputConsumerSecret').value +
+                  '&host=' + encodeURI(hostname);
+            } else {
+               urlToOpen = 'http://' + hostname + ':' + port + '/start?' +
+                  'key=' + document.getElementById('inputConsumerKey').value +
+                  '&secret=' + document.getElementById('inputConsumerSecret').value +
+                  '&host=' + encodeURI(hostname);
+            }
             this.popup = window.open(
                urlToOpen, 'honeywell-auth',
-               'toolbar=no, location=no, directories=no, status=no, menubar=no scrollbars=no, resizable=no, copyhistory=no, ' +
+               'toolbar=no, location=no, directories=no, status=no, menubar=no scrollbars=no, resizable=yes, copyhistory=no, ' +
                'width=' + w + ', height=' + h + ', top=' + y + ', left=' + x,
             )
          }
@@ -235,6 +247,7 @@
             try {
                document.getElementById('validateForm').style.display = 'none'
                if (
+                  !document.getElementById('inputConsumerUrl').value ||
                   !document.getElementById('inputConsumerKey').value ||
                   !document.getElementById('inputConsumerSecret').value
                ) {
@@ -254,7 +267,8 @@
          }
          showIntro = () => {
             const introLink = document.getElementById('introLink')
-            document.getElementById('copyMe').value = 'http://' + hostname + ':8585/auth'
+            const port = currentConfig[0].port || '8585'
+            document.getElementById('copyIntroCallbackUrl').value = 'http://' + hostname + ':' + port + '/auth'
             introLink.addEventListener('click', () => {
                homebridge.showSpinner()
                document.getElementById('pageIntro').style.display = 'none'
@@ -386,16 +400,35 @@
             document.getElementById('pageAccount').style.display = 'block'
             document.getElementById('linkButton').style.display = 'inline-block'
             let isRelink = false
-            if (currentConfig[0] && currentConfig[0].credentials) {
-               const key = currentConfig[0].credentials.consumerKey || ''
-               const secret = currentConfig[0].credentials.consumerSecret || ''
-               document.getElementById('inputConsumerKey').value = key
-               document.getElementById('inputConsumerSecret').value = secret
-               if (key && secret) {
-                  isRelink = true
-                  document.getElementById('unLinkButton').style.display = 'inline-block'
-               } else {
-                  document.getElementById('unLinkButton').style.display = 'none'
+            if (currentConfig[0]) {
+               const url = currentConfig[0].callbackUrl || ''
+               const port = currentConfig[0].port || '8585'
+               document.getElementById('copyIntroCallbackUrl').value = 'http://' + hostname + ':' + port + '/auth'
+               if (currentConfig[0].credentials) {
+                  const key = currentConfig[0].credentials.consumerKey || ''
+                  const secret = currentConfig[0].credentials.consumerSecret || ''
+                  document.getElementById('inputConsumerKey').value = key
+                  document.getElementById('inputConsumerSecret').value = secret
+                  if (key && secret) {
+                     isRelink = true
+                     document.getElementById('unLinkButton').style.display = 'inline-block'
+                  } else {
+                     document.getElementById('unLinkButton').style.display = 'none'
+                  }
+               }
+               if (currentConfig[0].callbackUrl) {
+                  if (url === '') {
+                     document.getElementById('inputConsumerUrl').value = document.getElementById("copyIntroCallbackUrl");
+                  } else {
+                     document.getElementById('inputConsumerUrl').value = url
+                  }
+               }
+               if (currentConfig[0].port) {
+                  if (port === '8585') {
+                     document.getElementById('inputConsumerPort').value = '8585'
+                  } else {
+                     document.getElementById('inputConsumerPort').value = port
+                  }
                }
             }
             document.getElementById('linkButton').innerHTML = isRelink
@@ -403,31 +436,18 @@
                : 'Link Account &rarr;'
             if (!isRelink) {
                document.getElementById('backToIntro').style.display = 'inline-block'
+            } else {
+               document.getElementById('backToIntro').style.display = 'none'
             }
-            homebridge.hideSpinner()
-         }
-         showDisabledBanner = () => {
-            document.getElementById('disabledBanner').style.display = 'block'
-         }
-         enablePlugin = async () => {
-            homebridge.showSpinner()
-            document.getElementById('disabledBanner').style.display = 'none'
-            currentConfig[0].disablePlugin = false
-            await homebridge.updatePluginConfig(currentConfig)
-            await homebridge.savePluginConfig()
             homebridge.hideSpinner()
          }
          menuHome.addEventListener('click', () => showSupport())
          menuAccount.addEventListener('click', () => showAccount())
          menuDevices.addEventListener('click', () => showDevices())
          menuSettings.addEventListener('click', () => showSettings())
-         disabledEnable.addEventListener('click', () => enablePlugin())
          if (currentConfig.length) {
             document.getElementById('menuWrapper').style.display = 'inline-flex'
             showAccount()
-            if (currentConfig[0].disablePlugin) {
-               showDisabledBanner()
-            }
          } else {
             currentConfig.push({ name: 'Resideo' })
             await homebridge.updatePluginConfig(currentConfig)
