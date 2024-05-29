@@ -9,7 +9,7 @@ import { take, skipWhile } from 'rxjs/operators';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
+import type { accessoryValue, devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -199,8 +199,12 @@ export class RoomSensors extends deviceBase {
    * Parse the device status from the Resideo api
    */
   async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory: sensorAccessory): Promise<void> {
+    // Get the accessory value
+    const accessoryValue = sensorAccessory.accessoryValue as accessoryValue
+    ?? { batteryStatus: 'Ok', indoorTemperature: 20, indoorHumidity: 50, occupancyDet: false};
+
     // Set Room Sensor State
-    if (sensorAccessory.accessoryValue.batteryStatus.startsWith('Ok')) {
+    if (accessoryValue.batteryStatus.startsWith('Ok')) {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
     } else {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
@@ -209,25 +213,32 @@ export class RoomSensors extends deviceBase {
 
     // Set Temperature Sensor State
     if (!device.thermostat?.roomsensor?.hide_temperature) {
-      this.TemperatureSensor!.CurrentTemperature = toCelsius(sensorAccessory.accessoryValue.indoorTemperature,
-        this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS);
+      if (this.TemperatureSensor) {
+        this.TemperatureSensor.CurrentTemperature = toCelsius(accessoryValue.indoorTemperature,
+          this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS);
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°c`);
+      }
     }
-    this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor!.CurrentTemperature}°c`);
 
     // Set Occupancy Sensor State
     if (!device.thermostat?.roomsensor?.hide_occupancy) {
-      if (sensorAccessory.accessoryValue.occupancyDet) {
-        this.OccupancySensor!.OccupancyDetected = 1;
-      } else {
-        this.OccupancySensor!.OccupancyDetected = 0;
+      if (this.OccupancySensor) {
+        if (accessoryValue.occupancyDet) {
+          this.OccupancySensor.OccupancyDetected = 1;
+        } else {
+          this.OccupancySensor.OccupancyDetected = 0;
+        }
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} OccupancyDetected: ${this.OccupancySensor.OccupancyDetected}`);
       }
     }
 
     // Set Humidity Sensor State
     if (!device.thermostat?.roomsensor?.hide_humidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = sensorAccessory.accessoryValue.indoorHumidity;
+      if (this.HumiditySensor) {
+        this.HumiditySensor.CurrentRelativeHumidity = accessoryValue.indoorHumidity;
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`);
+      }
     }
-    this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor!.CurrentRelativeHumidity}%`);
   }
 
   /**

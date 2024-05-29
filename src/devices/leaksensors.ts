@@ -10,7 +10,7 @@ import { skipWhile, take } from 'rxjs/operators';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, location, resideoDevice } from '../settings.js';
+import type { CurrentSensorReadings, devicesConfig, location, resideoDevice } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -217,28 +217,37 @@ export class LeakSensor extends deviceBase {
 
     // LeakSensor Service
     if (!device.leaksensor?.hide_leak) {
-      // Active
-      this.LeakSensor!.StatusActive = device.hasDeviceCheckedIn;
+      if (this.LeakSensor) {
+        // Active
+        this.LeakSensor.StatusActive = device.hasDeviceCheckedIn;
 
-      // LeakDetected
-      if (device.waterPresent === true) {
-        this.LeakSensor!.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_DETECTED;
-      } else {
-        this.LeakSensor!.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED;
+        // LeakDetected
+        if (device.waterPresent === true) {
+          this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_DETECTED;
+        } else {
+          this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED;
+        }
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} StatusActive: ${this.LeakSensor.StatusActive},`
+          + ` LeakDetected: ${this.LeakSensor.LeakDetected}`);
       }
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} LeakDetected: ${this.LeakSensor!.LeakDetected}`);
     }
 
+    const currentSensorReadings = device.currentSensorReadings as CurrentSensorReadings ?? { temperature: 20, humidity: 50 };
+
     // Temperature Service
-    if (!device.leaksensor?.hide_temperature && device.currentSensorReadings.temperature !== undefined) {
-      this.TemperatureSensor!.CurrentTemperature = device.currentSensorReadings.temperature;
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor!.CurrentTemperature}°`);
+    if (!device.leaksensor?.hide_temperature) {
+      if (this.TemperatureSensor) {
+        this.TemperatureSensor.CurrentTemperature = currentSensorReadings.temperature;
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°`);
+      }
     }
 
     // Humidity Service
-    if (!device.leaksensor?.hide_humidity && device.currentSensorReadings.humidity !== undefined) {
-      this.HumiditySensor!.CurrentRelativeHumidity = device.currentSensorReadings.humidity;
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor!.CurrentRelativeHumidity}%`);
+    if (!device.leaksensor?.hide_humidity) {
+      if (this.HumiditySensor) {
+        this.HumiditySensor.CurrentRelativeHumidity = currentSensorReadings.humidity;
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`);
+      }
     }
   }
 

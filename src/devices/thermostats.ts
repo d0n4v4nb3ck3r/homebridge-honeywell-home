@@ -352,8 +352,7 @@ export class Thermostats extends deviceBase {
         tap(() => {
           this.thermostatUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000),
-      )
+        debounceTime(this.deviceUpdateRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();
@@ -426,17 +425,13 @@ export class Thermostats extends deviceBase {
     this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus`);
     if (device.units === 'Fahrenheit') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
-      this.debugLog(
-        `${device.deviceClass} ${this.accessory.displayName} parseStatus` +
-        ` TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT}`,
-      );
+      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus` +
+        ` TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT}`);
     }
     if (device.units === 'Celsius') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS;
-      this.debugLog(
-        `${device.deviceClass} ${this.accessory.displayName} parseStatus` +
-        ` TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS}`,
-      );
+      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus` +
+        ` TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS}`);
     }
 
     this.Thermostat.CurrentTemperature = toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits));
@@ -444,8 +439,11 @@ export class Thermostats extends deviceBase {
       + ` CurrentTemperature: ${toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))}`);
 
     if (device.indoorHumidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = device.indoorHumidity;
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus CurrentRelativeHumidity: ${device.indoorHumidity}`);
+      if (this.HumiditySensor) {
+        this.HumiditySensor.CurrentRelativeHumidity = device.indoorHumidity;
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus`
+          + ` CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`);
+      }
     }
 
     if (device.changeableValues!.heatSetpoint > 0) {
@@ -509,17 +507,19 @@ export class Thermostats extends deviceBase {
 
     // Set the Target Fan State
     if (device.settings?.fan && !this.device.thermostat?.hide_fan) {
-      if (fanStatus) {
-        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanStatus: ${JSON.stringify(fanStatus)}`);
-        if (fanStatus.changeableValues.mode === 'Auto') {
-          this.Fan!.TargetFanState = this.hap.Characteristic.TargetFanState.AUTO;
-          this.Fan!.Active = this.hap.Characteristic.Active.INACTIVE;
-        } else if (fanStatus.changeableValues.mode === 'On') {
-          this.Fan!.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL;
-          this.Fan!.Active = this.hap.Characteristic.Active.ACTIVE;
-        } else if (fanStatus.changeableValues.mode === 'Circulate') {
-          this.Fan!.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL;
-          this.Fan!.Active = this.hap.Characteristic.Active.INACTIVE;
+      if (this.Fan) {
+        if (fanStatus) {
+          this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanStatus: ${JSON.stringify(fanStatus)}`);
+          if (fanStatus.changeableValues.mode === 'Auto') {
+            this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.AUTO;
+            this.Fan.Active = this.hap.Characteristic.Active.INACTIVE;
+          } else if (fanStatus.changeableValues.mode === 'On') {
+            this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL;
+            this.Fan.Active = this.hap.Characteristic.Active.ACTIVE;
+          } else if (fanStatus.changeableValues.mode === 'Circulate') {
+            this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL;
+            this.Fan.Active = this.hap.Characteristic.Active.INACTIVE;
+          }
         }
       }
     }
@@ -963,40 +963,32 @@ export class Thermostats extends deviceBase {
         + ` HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature, this.Thermostat.HeatingThresholdTemperature);
-      this.debugLog(
-        `${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-        + ` HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`,
-      );
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
+        + ` HeatingThresholdTemperature: ${this.Thermostat.HeatingThresholdTemperature}`);
     }
     if (this.Thermostat.CoolingThresholdTemperature === undefined) {
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName}`
         + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature, this.Thermostat.CoolingThresholdTemperature);
-      this.debugLog(
-        `${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-        + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`,
-      );
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
+        + ` CoolingThresholdTemperature: ${this.Thermostat.CoolingThresholdTemperature}`);
     }
     if (this.Thermostat.TargetHeatingCoolingState === undefined) {
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName}`
         + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TargetHeatingCoolingState, this.Thermostat.TargetHeatingCoolingState);
-      this.debugLog(
-        `${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-        + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`,
-      );
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
+        + ` TargetHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     }
     if (this.Thermostat.CurrentHeatingCoolingState === undefined) {
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName}`
         + ` CurrentHeatingCoolingState: ${this.Thermostat.CurrentHeatingCoolingState}`);
     } else {
       this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState);
-      this.debugLog(
-        `${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
-        + ` CurrentHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`,
-      );
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} updateCharacteristic`
+        + ` CurrentHeatingCoolingState: ${this.Thermostat.TargetHeatingCoolingState}`);
     }
     if (!this.device.thermostat?.hide_humidity) {
       if (this.device.indoorHumidity) {

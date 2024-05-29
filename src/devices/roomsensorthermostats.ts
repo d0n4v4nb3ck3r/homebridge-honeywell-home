@@ -11,7 +11,7 @@ import { DeviceURL } from '../settings.js';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, resideoDevice, sensorAccessory, T9groups, location, payload } from '../settings.js';
+import type { devicesConfig, resideoDevice, sensorAccessory, T9groups, location, payload, accessoryValue } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -280,8 +280,7 @@ export class RoomSensorThermostat extends deviceBase {
         tap(() => {
           this.thermostatUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000),
-      )
+        debounceTime(this.deviceUpdateRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();
@@ -313,7 +312,8 @@ export class RoomSensorThermostat extends deviceBase {
   /**
    * Parse the device status from the Resideo api
    */
-  async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory?): Promise<void> {
+  async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory?: sensorAccessory): Promise<void> {
+    // Parse the device status
     if (device.units === 'Fahrenheit') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
     }
@@ -321,13 +321,25 @@ export class RoomSensorThermostat extends deviceBase {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS;
     }
 
-    this.Thermostat.CurrentTemperature = toCelsius(sensorAccessory.accessoryValue.indoorTemperature,
-      Number(this.Thermostat.TemperatureDisplayUnits));
+    // Parse the Sensor Accessory status
+    if (sensorAccessory) {
+      const accessoryValue = sensorAccessory.accessoryValue as accessoryValue
+    ?? { indoorTemperature: 20, indoorHumidity: 50 };
 
-    if (!device.thermostat?.hide_humidity && sensorAccessory.accessoryValue.indoorHumidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = sensorAccessory.accessoryValue.indoorHumidity;
+      this.Thermostat.CurrentTemperature = toCelsius(accessoryValue.indoorTemperature,
+        Number(this.Thermostat.TemperatureDisplayUnits));
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.Thermostat.CurrentTemperature}`);
+
+      if (!device.thermostat?.hide_humidity && accessoryValue.indoorHumidity) {
+        if (this.HumiditySensor) {
+          this.HumiditySensor!.CurrentRelativeHumidity = accessoryValue.indoorHumidity;
+          this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`);
+        }
+      }
     }
 
+    // Parse the Thermostat status
     if (this.device.changeableValues!.heatSetpoint > 0) {
       this.Thermostat.HeatingThresholdTemperature = toCelsius(device.changeableValues!.heatSetpoint,
         Number(this.Thermostat.TemperatureDisplayUnits));

@@ -805,10 +805,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `roomSensor.ts`
       new RoomSensors(this, accessory, location, device, sensorAccessory, group);
-      this.debugLog(
-        `${sensorAccessory.accessoryAttribute.type}` +
-        ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${accessory.UUID})`,
-      );
+      this.debugLog(`${sensorAccessory.accessoryAttribute.type}` +
+        ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
       this.externalOrPlatform(device, accessory);
@@ -877,11 +875,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new RoomSensorThermostat(this, accessory, location, device, sensorAccessory, group);
-      this.debugLog(
-        `${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
+      this.debugLog(`${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
         ` ${sensorAccessory.accessoryAttribute.name}-${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-` +
-        `RoomSensorThermostat, (${accessory.UUID})`,
-      );
+        `RoomSensorThermostat, (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
       this.externalOrPlatform(device, accessory);
@@ -1030,8 +1026,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.log.error(`Failed to ${this.action}: Unprocessable Entity`);
       this.debugLog(
         'The client has made a valid request, but the server cannot process it.' +
-        ' This is often used for APIs for which certain limits have been exceeded.',
-      );
+        ' This is often used for APIs for which certain limits have been exceeded.');
     } else if (e.message.includes('429')) {
       this.log.error(`Failed to ${this.action}: Too Many Requests`);
       this.debugLog('The client has exceeded the number of requests allowed for a given time window.');
@@ -1118,8 +1113,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     const json = JSON.parse(
       await readFile(
         new URL('../package.json', import.meta.url),
-        'utf-8',
-      ),
+        'utf-8'),
     );
     this.debugLog(`Plugin Version: ${json.version}`);
     this.version = json.version;

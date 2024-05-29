@@ -222,8 +222,7 @@ export abstract class deviceBase {
       this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unprocessable Entity`);
       this.log.debug(
         'The client has made a valid request, but the server cannot process it.' +
-        ' This is often used for APIs for which certain limits have been exceeded.',
-      );
+        ' This is often used for APIs for which certain limits have been exceeded.');
     } else if (e.message.includes('429')) {
       this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Too Many Requests`);
       this.log.debug('The client has exceeded the number of requests allowed for a given time window.');
