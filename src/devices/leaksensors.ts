@@ -230,13 +230,13 @@ export class LeakSensor extends deviceBase {
     }
 
     // Temperature Service
-    if (!device.leaksensor?.hide_temperature) {
+    if (!device.leaksensor?.hide_temperature && device.currentSensorReadings.temperature !== undefined) {
       this.TemperatureSensor!.CurrentTemperature = device.currentSensorReadings.temperature;
       this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor!.CurrentTemperature}°`);
     }
 
     // Humidity Service
-    if (!device.leaksensor?.hide_humidity) {
+    if (!device.leaksensor?.hide_humidity && device.currentSensorReadings.humidity !== undefined) {
       this.HumiditySensor!.CurrentRelativeHumidity = device.currentSensorReadings.humidity;
       this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor!.CurrentRelativeHumidity}%`);
     }
