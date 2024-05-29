@@ -165,6 +165,7 @@
    ; (async () => {
       try {
          const currentConfig = await homebridge.getPluginConfig()
+         const hostname = window.location.hostname
          try {
             await homebridge.request('Start Resideo Login Server')
          } catch (err) {
@@ -175,7 +176,6 @@
             try {
                if (event.data.access && event.data.refresh) {
                   this.popup.close()
-                  currentConfig[0].callbackUrl = event.data.callbackUrl
                   currentConfig[0].credentials = {
                      consumerKey: event.data.key,
                      consumerSecret: event.data.secret,
@@ -205,7 +205,6 @@
          linkAccount = async () => {
             document.getElementById('validateForm').style.display = 'none'
             if (
-               !document.getElementById('inputConsumerUrl').value ||
                !document.getElementById('inputConsumerKey').value ||
                !document.getElementById('inputConsumerSecret').value
             ) {
@@ -217,12 +216,12 @@
             const y = window.top.outerHeight / 2 + window.top.screenY - (h / 2);
             const x = window.top.outerWidth / 2 + window.top.screenX - (w / 2);
             const urlToOpen = 'http://' + hostname + ':8585/start?' +
-            'key=' + document.getElementById('inputConsumerKey').value +
-            '&secret=' + document.getElementById('inputConsumerSecret').value +
-            '&host=' + encodeURI(hostname);
+               'key=' + document.getElementById('inputConsumerKey').value +
+               '&secret=' + document.getElementById('inputConsumerSecret').value +
+               '&host=' + encodeURI(hostname);
             this.popup = window.open(
                urlToOpen, 'honeywell-auth',
-               'toolbar=no, location=no, directories=no, status=no, menubar=no scrollbars=no, resizable=yes, copyhistory=no, ' +
+               'toolbar=no, location=no, directories=no, status=no, menubar=no scrollbars=no, resizable=no, copyhistory=no, ' +
                'width=' + w + ', height=' + h + ', top=' + y + ', left=' + x,
             )
          }
