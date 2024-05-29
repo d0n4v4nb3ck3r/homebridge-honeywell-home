@@ -2,7 +2,7 @@
  *
  * settings.ts: homebridge-resideo.
  */
-import { PlatformConfig } from 'homebridge';
+import type { PlatformConfig } from 'homebridge';
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
  */
@@ -51,7 +51,7 @@ export type credentials = {
 export type options = {
   refreshRate?: number;
   pushRate?: number;
-  devices?: Array<devicesConfig>;
+  devices?: devicesConfig[];
   logging?: string;
 };
 
@@ -134,17 +134,17 @@ export type payload = {
   state?: string;
 };
 
-export type locations = Array<location>;
+export type locations = location[];
 
 // Location
 export type location = {
   locationID: number;
   name: string;
-  devices: Array<resideoDevice>;
+  devices: resideoDevice[];
 };
 
 export type resideoDevice = {
-  groups?: Array<T9groups>;
+  groups?: T9groups[];
   inBuiltSensorState?: inBuiltSensorState;
   settings?: Settings;
   deviceClass: string;
@@ -426,7 +426,7 @@ export type Accessory = {
 export type dataSyncInfo = {
   state: string; //'NotStarted' | 'Initiated' | 'Completed' | 'Failed'
   transactionId: string;	//Internal reference ID for the DataSync operation
-}
+};
 
 export type actuatorValve = {
   commandSource: string;//'app' | 'wldFreeze' | 'wldLeak' | 'manual' | 'buildInLeak' | 'maintenance';
@@ -439,16 +439,16 @@ export type actuatorValve = {
   lastAntiScaleTime: Date;	//Last time of anti - scale operation
   leakStatus: string; //'ok' | 'leak' | 'na' | 'err'
   timeValveChanged: Date;	//Time of last valve change
-}
+};
 
 export type daylightSavingsInfo = {
   isDaylightSaving: boolean	//If device is currently using DST or not
   nextOffsetChange: Date	//Next scheduled DST changeover
-}
+};
 
 export type maintenance = {
   antiScaleSettings: string;	//Current anti - scale cycle: 'OncePerWeek' | 'OncePerTwoWeeks' | 'OncePerMonth' | 'OncePerTwoMonths' | 'Disabled'
   antiScaleDOWSettings: string;	//'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday'
   antiScaleDOMSettings: number;	//If monthly anti - scale is used, day of the month.
   antiScaleTimeSettings: string;	//Time for anti - scale in 24 hrs format
-}
+};
