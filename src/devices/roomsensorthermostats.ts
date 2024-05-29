@@ -89,6 +89,7 @@ export class RoomSensorThermostat extends deviceBase {
     this.Thermostat.Service
       .setCharacteristic(this.hap.Characteristic.Name, this.Thermostat.Name)
       .setCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState)
+      .getCharacteristic(this.hap.Characteristic.TemperatureDisplayUnits)
       .onGet(() => {
         return this.Thermostat.TemperatureDisplayUnits;
       })
