@@ -2,7 +2,7 @@
  *
  * roomsensorthermostats.ts: homebridge-resideo.
  */
-import { request } from 'undici';
+//import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { deviceBase } from './device.js';
 import { debounceTime, skipWhile, take, tap } from 'rxjs/operators';
@@ -11,7 +11,7 @@ import { DeviceURL } from '../settings.js';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, resideoDevice, sensorAccessory, T9groups, location, payload } from '../settings.js';
+import type { devicesConfig, resideoDevice, sensorAccessory, T9groups, location, payload, accessoryValue } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -21,6 +21,7 @@ import type { devicesConfig, resideoDevice, sensorAccessory, T9groups, location,
 export class RoomSensorThermostat extends deviceBase {
   // Services
   private Thermostat: {
+    Name: CharacteristicValue
     Service: Service;
     TargetTemperature: CharacteristicValue;
     CurrentTemperature: CharacteristicValue;
@@ -32,6 +33,7 @@ export class RoomSensorThermostat extends deviceBase {
   };
 
   private HumiditySensor?: {
+    Name: CharacteristicValue
     Service: Service;
     CurrentRelativeHumidity: CharacteristicValue;
   };
@@ -68,44 +70,30 @@ export class RoomSensorThermostat extends deviceBase {
     this.doThermostatUpdate = new Subject();
     this.thermostatUpdateInProgress = false;
 
-    // Initialize Thermostat property
+    // Initialize Thermostat Service
+    accessory.context.Thermostat = accessory.context.Thermostat ?? {};
     this.Thermostat = {
-      Service: accessory.getService(this.hap.Service.Thermostat) as Service,
-      TargetTemperature: accessory.context.TargetTemperature || 20,
-      CurrentTemperature: accessory.context.CurrentTemperature || 20,
-      TemperatureDisplayUnits: accessory.context.TemperatureDisplayUnits || this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS,
-      TargetHeatingCoolingState: accessory.context.TargetHeatingCoolingState || this.hap.Characteristic.TargetHeatingCoolingState.AUTO,
-      CurrentHeatingCoolingState: accessory.context.CurrentHeatingCoolingState || this.hap.Characteristic.CurrentHeatingCoolingState.OFF,
-      CoolingThresholdTemperature: accessory.context.CoolingThresholdTemperature || 20,
-      HeatingThresholdTemperature: accessory.context.HeatingThresholdTemperature || 22,
+      Name: accessory.context.Thermostat.Name ?? `${accessory.displayName} Thermostat`,
+      Service: accessory.getService(this.hap.Service.Thermostat) ?? this.accessory.addService(this.hap.Service.Thermostat) as Service,
+      TargetTemperature: accessory.context.TargetTemperature ?? 20,
+      CurrentTemperature: accessory.context.CurrentTemperature ?? 20,
+      TemperatureDisplayUnits: accessory.context.TemperatureDisplayUnits ?? this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS,
+      TargetHeatingCoolingState: accessory.context.TargetHeatingCoolingState ?? this.hap.Characteristic.TargetHeatingCoolingState.AUTO,
+      CurrentHeatingCoolingState: accessory.context.CurrentHeatingCoolingState ?? this.hap.Characteristic.CurrentHeatingCoolingState.OFF,
+      CoolingThresholdTemperature: accessory.context.CoolingThresholdTemperature ?? 20,
+      HeatingThresholdTemperature: accessory.context.HeatingThresholdTemperature ?? 22,
     };
+    accessory.context.Thermostat = this.Thermostat as object;
 
-    // Initialize HumiditySensor property
-    if (!device.thermostat?.hide_humidity && device.indoorHumidity) {
-      this.HumiditySensor = {
-        Service: accessory.getService(this.hap.Service.HumiditySensor) as Service,
-        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity || 50,
-      };
-    }
-    // Initial Refresh
-    this.refreshStatus();
-
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    (this.Thermostat.Service = this.accessory.getService(this.hap.Service.Thermostat)
-      || this.accessory.addService(this.hap.Service.Thermostat)), `${accessory.displayName} Thermostat`;
-
-    // To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-    // when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-    // this.accessory.getService('NAME') ?? this.accessory.addService(this.hap.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE');
-
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.Thermostat.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Thermostat`);
-
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Thermostat
-
+    //Service Name
+    this.Thermostat.Service
+      .setCharacteristic(this.hap.Characteristic.Name, this.Thermostat.Name)
+      .setCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState)
+      .getCharacteristic(this.hap.Characteristic.TemperatureDisplayUnits)
+      .onGet(() => {
+        return this.Thermostat.TemperatureDisplayUnits;
+      })
+      .onSet(this.setTemperatureDisplayUnits.bind(this));;
 
     // Set Min and Max
     if (device.changeableValues!.heatCoolMode === 'Heat') {
@@ -159,19 +147,69 @@ export class RoomSensorThermostat extends deviceBase {
       .setProps({
         validValues: TargetState,
       })
+      .onGet(() => {
+        return this.Thermostat.TargetHeatingCoolingState;
+      })
       .onSet(this.setTargetHeatingCoolingState.bind(this));
 
-    this.Thermostat.Service.setCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState);
-
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature)
+    this.Thermostat.Service
+      .getCharacteristic(this.hap.Characteristic.HeatingThresholdTemperature)
+      .onGet(() => {
+        return this.Thermostat.HeatingThresholdTemperature;
+      })
       .onSet(this.setHeatingThresholdTemperature.bind(this));
 
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature)
+    this.Thermostat.Service
+      .getCharacteristic(this.hap.Characteristic.CoolingThresholdTemperature)
+      .onGet(() => {
+        return this.Thermostat.CoolingThresholdTemperature;
+      })
       .onSet(this.setCoolingThresholdTemperature.bind(this));
 
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.TargetTemperature).onSet(this.setTargetTemperature.bind(this));
+    this.Thermostat.Service
+      .getCharacteristic(this.hap.Characteristic.TargetTemperature)
+      .onGet(() => {
+        return this.Thermostat.TargetTemperature;
+      })
+      .onSet(this.setTargetTemperature.bind(this));
 
-    this.Thermostat.Service.getCharacteristic(this.hap.Characteristic.TemperatureDisplayUnits).onSet(this.setTemperatureDisplayUnits.bind(this));
+    // Initialize Humidity Sensor Service
+    if (device.thermostat?.hide_humidity) {
+      if (this.HumiditySensor) {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Removing Humidity Sensor Service`);
+        this.HumiditySensor.Service = this.accessory.getService(this.hap.Service.HumiditySensor) as Service;
+        accessory.removeService(this.HumiditySensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Humidity Sensor Service Not Found`);
+      }
+    } else if (device.indoorHumidity) {
+      this.debugLog(`Thermostat: ${accessory.displayName} Add Humidity Sensor Service`);
+      accessory.context.HumiditySensor = accessory.context.HumiditySensor ?? {};
+      this.HumiditySensor = {
+        Name: accessory.context.HumiditySensor.Name ?? `${accessory.displayName} Humidity Sensor`,
+        Service: accessory.getService(this.hap.Service.HumiditySensor) ?? accessory.addService(this.hap.Service.HumiditySensor) as Service,
+        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity ?? 50,
+      };
+      accessory.context.HumiditySensor = this.HumiditySensor as object;
+
+      // Initialize Humidity Sensor Characteristic
+      this.HumiditySensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.HumiditySensor.Name);
+
+      this.HumiditySensor.Service
+        .getCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity)
+        .setProps({
+          minStep: 0.1,
+        })
+        .onGet(() => {
+          return this.HumiditySensor!.CurrentRelativeHumidity;
+        });
+
+    } else {
+      this.debugLog(`Thermostat: ${accessory.displayName} Humidity Sensor Service Not Added`);
+    }
+    // Initial Refresh
+    this.refreshStatus();
 
     // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
@@ -242,8 +280,7 @@ export class RoomSensorThermostat extends deviceBase {
         tap(() => {
           this.thermostatUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000),
-      )
+        debounceTime(this.deviceUpdateRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();
@@ -275,7 +312,8 @@ export class RoomSensorThermostat extends deviceBase {
   /**
    * Parse the device status from the Resideo api
    */
-  async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory?): Promise<void> {
+  async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory?: sensorAccessory): Promise<void> {
+    // Parse the device status
     if (device.units === 'Fahrenheit') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
     }
@@ -283,13 +321,25 @@ export class RoomSensorThermostat extends deviceBase {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS;
     }
 
-    this.Thermostat.CurrentTemperature = toCelsius(sensorAccessory.accessoryValue.indoorTemperature,
-      Number(this.Thermostat.TemperatureDisplayUnits));
+    // Parse the Sensor Accessory status
+    if (sensorAccessory) {
+      const accessoryValue = sensorAccessory.accessoryValue as accessoryValue
+    ?? { indoorTemperature: 20, indoorHumidity: 50 };
 
-    if (!device.thermostat?.hide_humidity && sensorAccessory.accessoryValue.indoorHumidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = sensorAccessory.accessoryValue.indoorHumidity;
+      this.Thermostat.CurrentTemperature = toCelsius(accessoryValue.indoorTemperature,
+        Number(this.Thermostat.TemperatureDisplayUnits));
+      this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.Thermostat.CurrentTemperature}`);
+
+      if (!device.thermostat?.hide_humidity && accessoryValue.indoorHumidity) {
+        if (this.HumiditySensor) {
+          this.HumiditySensor!.CurrentRelativeHumidity = accessoryValue.indoorHumidity;
+          this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+        + ` CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`);
+        }
+      }
     }
 
+    // Parse the Thermostat status
     if (this.device.changeableValues!.heatSetpoint > 0) {
       this.Thermostat.HeatingThresholdTemperature = toCelsius(device.changeableValues!.heatSetpoint,
         Number(this.Thermostat.TemperatureDisplayUnits));
@@ -336,6 +386,13 @@ export class RoomSensorThermostat extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
+      const device: any = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}`,
+        {
+          params: {
+            locationId: this.location.locationID,
+          },
+        })).data;
+        /*
       const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
         method: 'GET',
         query: {
@@ -349,11 +406,11 @@ export class RoomSensorThermostat extends deviceBase {
       });
       const action = 'refreshStatus';
       await this.statusCode(statusCode, action);
-      const deviceStatus: any = await body.json();
-      this.debugLog(`Room Sensor ${deviceStatus.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(deviceStatus)}`);
-      this.debugLog(`Room Sensor ${deviceStatus.deviceClass} ${this.accessory.displayName}`
+      const deviceStatus: any = await body.json();*/
+      this.debugLog(`Room Sensor ${device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`);
+      this.debugLog(`Room Sensor ${device.deviceClass} ${this.accessory.displayName}`
         + ` Fetched update for: ${this.device.name} from Resideo API: ${JSON.stringify(this.device.changeableValues)}`);
-      this.parseStatus(deviceStatus);
+      this.parseStatus(device);
       this.updateHomeKitCharacteristics();
     } catch (e: any) {
       const action = 'refreshStatus';
@@ -431,7 +488,13 @@ export class RoomSensorThermostat extends deviceBase {
 
   async refreshRoomPriority(): Promise<void> {
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat') {
-      const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+      const roomPriorityStatus = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+        params: {
+          locationId: this.location.locationID,
+        },
+      })).data;
+
+      /*const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
         method: 'GET',
         query: {
           'locationId': this.location.locationID,
@@ -444,10 +507,12 @@ export class RoomSensorThermostat extends deviceBase {
       });
       const action = 'refreshRoomPriority';
       await this.statusCode(statusCode, action);
-      const roomPriorityStatus: any = await body.json();
+      const roomPriorityStatus: any = await body.json();*/
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} (refreshRoomPriority)`
         + ` roomPriorityStatus: ${JSON.stringify(roomPriorityStatus)}`);
     }
+    this.parseStatus(this.device, this.sensorAccessory);
+    this.updateHomeKitCharacteristics();
   }
 
   /**
@@ -486,7 +551,12 @@ export class RoomSensorThermostat extends deviceBase {
         }
 
         // Make the API request
-        const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+        await this.platform.axios.put(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, payload, {
+          params: {
+            locationId: this.location.locationID,
+          },
+        });
+        /*const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
           method: 'PUT',
           body: JSON.stringify(payload),
           query: {
@@ -500,7 +570,7 @@ export class RoomSensorThermostat extends deviceBase {
         });
         const action = 'pushRoomChanges';
         await this.statusCode(statusCode, action);
-        this.debugLog(`(pushRoomChanges) body: ${JSON.stringify(body)}`);
+        this.debugLog(`(pushRoomChanges) body: ${JSON.stringify(body)}`);*/
         this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} pushRoomChanges: ${JSON.stringify(payload)}`);
       }
       // Refresh the status from the API
@@ -559,7 +629,12 @@ export class RoomSensorThermostat extends deviceBase {
         + ` set request (${JSON.stringify(payload)}) to Resideo API.`);
 
       // Make the API request
-      const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}`, payload, {
+        params: {
+          locationId: this.location.locationID,
+        },
+      });
+      /*const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
         method: 'POST',
         body: JSON.stringify(payload),
         query: {
@@ -572,7 +647,7 @@ export class RoomSensorThermostat extends deviceBase {
         },
       });
       const action = 'pushChanges';
-      await this.statusCode(statusCode, action);
+      await this.statusCode(statusCode, action);*/
       this.debugLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`);
     } catch (e: any) {
       const action = 'pushChanges';

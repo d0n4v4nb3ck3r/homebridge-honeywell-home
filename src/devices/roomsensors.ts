@@ -9,7 +9,7 @@ import { take, skipWhile } from 'rxjs/operators';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
+import type { accessoryValue, devicesConfig, location, resideoDevice, sensorAccessory, T9groups } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -19,6 +19,7 @@ import type { devicesConfig, location, resideoDevice, sensorAccessory, T9groups 
 export class RoomSensors extends deviceBase {
   // Services
   private Battery: {
+    Name: CharacteristicValue
     Service: Service;
     BatteryLevel: CharacteristicValue;
     ChargingState: CharacteristicValue;
@@ -26,16 +27,19 @@ export class RoomSensors extends deviceBase {
   };
 
   private OccupancySensor?: {
+    Name: CharacteristicValue
     Service: Service;
     OccupancyDetected: CharacteristicValue;
   };
 
   private HumiditySensor?: {
+    Name: CharacteristicValue
     Service: Service;
     CurrentRelativeHumidity: CharacteristicValue;
   };
 
   private TemperatureSensor?: {
+    Name: CharacteristicValue
     Service: Service;
     CurrentTemperature: CharacteristicValue;
   };
@@ -67,115 +71,106 @@ export class RoomSensors extends deviceBase {
     this.doSensorUpdate = new Subject();
     this.SensorUpdateInProgress = false;
 
-    // Initialize Valve property
+    // Initialize Battery Service
+    accessory.context.Battery = accessory.context.Battery ?? {};
     this.Battery = {
-      Service: accessory.getService(this.hap.Service.Battery) as Service,
-      BatteryLevel: accessory.context.BatteryLevel || 100,
-      ChargingState: accessory.context.ChargingState || this.hap.Characteristic.ChargingState.NOT_CHARGEABLE,
-      StatusLowBattery: accessory.context.StatusLowBattery || this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+      Name: accessory.context.Battery.Name ?? `${accessory.displayName} Battery`,
+      Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
+      BatteryLevel: accessory.context.BatteryLevel ?? 100,
+      ChargingState: accessory.context.ChargingState ?? this.hap.Characteristic.ChargingState.NOT_CHARGEABLE,
+      StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
     };
-
-    // Initialize LeakSensor property
-    if (!device.thermostat?.roomsensor?.hide_occupancy) {
-      this.OccupancySensor = {
-        Service: accessory.getService(this.hap.Service.LeakSensor) as Service,
-        OccupancyDetected: accessory.context.OccupancyDetected || this.hap.Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED,
-      };
-    }
-
-    // Initialize TemperatureSensor property
-    if (!device.thermostat?.roomsensor?.hide_temperature) {
-      this.TemperatureSensor = {
-        Service: accessory.getService(this.hap.Service.TemperatureSensor) as Service,
-        CurrentTemperature: accessory.context.CurrentTemperature || 20,
-      };
-    }
-
-    // Initialize HumiditySensor property
-    if (!device.thermostat?.roomsensor?.hide_humidity) {
-      this.HumiditySensor = {
-        Service: accessory.getService(this.hap.Service.HumiditySensor) as Service,
-        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity || 50,
-      };
-    }
-
-    // Intial Refresh
-    this.refreshStatus();
-
-
-    // get the BatteryService service if it exists, otherwise create a new Battery service
-    // you can create multiple services for each accessory
-    (this.Battery.Service = this.accessory.getService(this.hap.Service.Battery)
-      || this.accessory.addService(this.hap.Service.Battery)), `${accessory.displayName} Battery`;
-
-    // To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-    // when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-    // this.accessory.getService('NAME') ?? this.accessory.addService(this.hap.Service.Battery, 'NAME', 'USER_DEFINED_SUBTYPE');
-
+    accessory.context.Battery = this.Battery as object;
     // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.Battery.Service.setCharacteristic(this.hap.Characteristic.Name, accessory.displayName);
+    this.Battery.Service
+      .setCharacteristic(this.hap.Characteristic.Name, this.Battery.Name)
+      .setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE)
+      .getCharacteristic(this.hap.Characteristic.BatteryLevel)
+      .onGet(() => {
+        return this.Battery.BatteryLevel;
+      });
 
-    // Set Charging State
-    this.Battery.Service.setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE);
+    // Initialize Occupancy Sensor Service
+    if (device.thermostat?.roomsensor?.hide_occupancy) {
+      if (this.OccupancySensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Occupancy Sensor Service`);
+        this.OccupancySensor.Service = accessory.getService(this.hap.Service.OccupancySensor) as Service;
+        accessory.removeService(this.OccupancySensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Occupancy Sensor Service Not Found`);
+      }
+    } else {
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Occupancy Sensor Service`);
+      accessory.context.OccupancySensor = accessory.context.OccupancySensor ?? {};
+      this.OccupancySensor = {
+        Name: accessory.context.OccupancySensor.Name ?? `${accessory.displayName} Occupancy Sensor`,
+        Service: accessory.getService(this.hap.Service.OccupancySensor) ?? accessory.addService(this.hap.Service.OccupancySensor) as Service,
+        OccupancyDetected: accessory.context.OccupancyDetected ?? this.hap.Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED,
+      };
+      accessory.context.OccupancySensor = this.OccupancySensor as object;
 
-    // Temperature Sensor Service
+      // Initialize Occupancy Sensor Characteristic
+      this.OccupancySensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.OccupancySensor.Name);
+    }
+
+    // Initialize Temperature Sensor Service
     if (device.thermostat?.roomsensor?.hide_temperature) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Removing Temperature Sensor Service`);
-      this.TemperatureSensor!.Service = this.accessory.getService(this.hap.Service.TemperatureSensor) as Service;
-      accessory.removeService(this.TemperatureSensor!.Service);
-    } else if (!this.TemperatureSensor?.Service) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Add Temperature Sensor Service`);
-      (this.TemperatureSensor!.Service =
-        this.accessory.getService(this.hap.Service.TemperatureSensor)
-        || this.accessory.addService(this.hap.Service.TemperatureSensor)), `${accessory.displayName} Temperature Sensor`;
+      if (this.TemperatureSensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Temperature Sensor Service`);
+        this.TemperatureSensor.Service = accessory.getService(this.hap.Service.TemperatureSensor) as Service;
+        accessory.removeService(this.TemperatureSensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Temperature Sensor Service Not Found`);
+      }
+    } else {
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Temperature Sensor Service`);
+      accessory.context.TemperatureSensor = accessory.context.TemperatureSensor ?? {};
+      this.TemperatureSensor = {
+        Name: accessory.context.TemperatureSensor.Name ?? `${accessory.displayName} Temperature Sensor`,
+        Service: accessory.getService(this.hap.Service.TemperatureSensor) ?? accessory.addService(this.hap.Service.TemperatureSensor) as Service,
+        CurrentTemperature: accessory.context.CurrentTemperature ?? 20,
+      };
+      accessory.context.TemperatureSensor = this.TemperatureSensor as object;
 
-      this.TemperatureSensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Temperature Sensor`);
-
-      this.TemperatureSensor!.Service
+      // Initialize Temperature Sensor Characteristic
+      this.TemperatureSensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.TemperatureSensor.Name)
         .getCharacteristic(this.hap.Characteristic.CurrentTemperature)
         .setProps({
           minValue: -273.15,
           maxValue: 100,
           minStep: 0.1,
         })
-        .onGet(() => {
+        .onGet(async () => {
           return this.TemperatureSensor!.CurrentTemperature;
         });
-    } else {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Temperature Sensor Service Not Added`);
     }
 
-    // Occupancy Sensor Service
-    if (device.thermostat?.roomsensor?.hide_occupancy) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Removing Occupancy Sensor Service`);
-      this.OccupancySensor!.Service = this.accessory.getService(this.hap.Service.OccupancySensor) as Service;
-      accessory.removeService(this.OccupancySensor!.Service);
-    } else if (!this.OccupancySensor?.Service) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Add Occupancy Sensor Service`);
-      (this.OccupancySensor!.Service =
-        this.accessory.getService(this.hap.Service.OccupancySensor)
-        || this.accessory.addService(this.hap.Service.OccupancySensor)), `${accessory.displayName} Occupancy Sensor`;
-
-      this.OccupancySensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Occupancy Sensor`);
-    } else {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Occupancy Sensor Service Not Added`);
-    }
-
-    // Humidity Sensor Service
+    // Initialize Humidity Sensor Service
     if (device.thermostat?.roomsensor?.hide_humidity) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Removing Humidity Sensor Service`);
-      this.HumiditySensor!.Service = this.accessory.getService(this.hap.Service.HumiditySensor) as Service;
-      accessory.removeService(this.HumiditySensor!.Service);
-    } else if (!this.HumiditySensor?.Service) {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Add Humidity Sensor Service`);
-      (this.HumiditySensor!.Service =
-        this.accessory.getService(this.hap.Service.HumiditySensor)
-        || this.accessory.addService(this.hap.Service.HumiditySensor)), `${accessory.displayName} Humidity Sensor`;
+      if (this.HumiditySensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Humidity Sensor Service`);
+        this.HumiditySensor.Service = accessory.getService(this.hap.Service.HumiditySensor) as Service;
+        accessory.removeService(this.HumiditySensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Humidity Sensor Service Not Found`);
+      }
+    } else {
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Humidity Sensor Service`);
+      accessory.context.HumiditySensor = accessory.context.HumiditySensor ?? {};
+      this.HumiditySensor = {
+        Name: accessory.context.HumiditySensor.Name ?? `${accessory.displayName} Humidity Sensor`,
+        Service: accessory.getService(this.hap.Service.HumiditySensor) ?? accessory.addService(this.hap.Service.HumiditySensor) as Service,
+        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity ?? 50,
+      };
+      accessory.context.HumiditySensor = this.HumiditySensor as object;
 
-      this.HumiditySensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Humidity Sensor`);
+      // Initialize Humidity Sensor Characteristic
+      this.HumiditySensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.HumiditySensor.Name);
 
-      this.HumiditySensor!.Service
+      this.HumiditySensor.Service
         .getCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity)
         .setProps({
           minStep: 0.1,
@@ -183,9 +178,11 @@ export class RoomSensors extends deviceBase {
         .onGet(() => {
           return this.HumiditySensor!.CurrentRelativeHumidity;
         });
-    } else {
-      this.debugLog(`Room Sensor: ${accessory.displayName} Humidity Sensor Service Not Added`);
+
     }
+
+    // Intial Refresh
+    this.refreshStatus();
 
     // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
@@ -202,8 +199,12 @@ export class RoomSensors extends deviceBase {
    * Parse the device status from the Resideo api
    */
   async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory: sensorAccessory): Promise<void> {
+    // Get the accessory value
+    const accessoryValue = sensorAccessory.accessoryValue as accessoryValue
+    ?? { batteryStatus: 'Ok', indoorTemperature: 20, indoorHumidity: 50, occupancyDet: false};
+
     // Set Room Sensor State
-    if (sensorAccessory.accessoryValue.batteryStatus.startsWith('Ok')) {
+    if (accessoryValue.batteryStatus.startsWith('Ok')) {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
     } else {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
@@ -212,25 +213,32 @@ export class RoomSensors extends deviceBase {
 
     // Set Temperature Sensor State
     if (!device.thermostat?.roomsensor?.hide_temperature) {
-      this.TemperatureSensor!.CurrentTemperature = toCelsius(sensorAccessory.accessoryValue.indoorTemperature,
-        this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS);
+      if (this.TemperatureSensor) {
+        this.TemperatureSensor.CurrentTemperature = toCelsius(accessoryValue.indoorTemperature,
+          this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS);
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°c`);
+      }
     }
-    this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor!.CurrentTemperature}°c`);
 
     // Set Occupancy Sensor State
     if (!device.thermostat?.roomsensor?.hide_occupancy) {
-      if (sensorAccessory.accessoryValue.occupancyDet) {
-        this.OccupancySensor!.OccupancyDetected = 1;
-      } else {
-        this.OccupancySensor!.OccupancyDetected = 0;
+      if (this.OccupancySensor) {
+        if (accessoryValue.occupancyDet) {
+          this.OccupancySensor.OccupancyDetected = 1;
+        } else {
+          this.OccupancySensor.OccupancyDetected = 0;
+        }
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} OccupancyDetected: ${this.OccupancySensor.OccupancyDetected}`);
       }
     }
 
     // Set Humidity Sensor State
     if (!device.thermostat?.roomsensor?.hide_humidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = sensorAccessory.accessoryValue.indoorHumidity;
+      if (this.HumiditySensor) {
+        this.HumiditySensor.CurrentRelativeHumidity = accessoryValue.indoorHumidity;
+        this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`);
+      }
     }
-    this.debugLog(`Room Sensor: ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor!.CurrentRelativeHumidity}%`);
   }
 
   /**

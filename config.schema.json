@@ -14,31 +14,6 @@
         "title": "Name",
         "default": "Resideo"
       },
-      "callbackUrl": {
-        "type": "string",
-        "title": "Login UI Callback URL",
-        "description": "Callback URL for the Homebridge Resideo UI. Default is http://{hostname}:8585/auth.",
-        "format": "uri",
-        "pattern": "^https?://",
-        "x-schema-form": {
-          "type": "hostname"
-        },
-        "condition": {
-          "functionBody": "return (!model.port);"
-        }
-      },
-      "port": {
-        "type": "string",
-        "title": "Login UI Port",
-        "placeholder": "8585",
-        "description": "Port for the Homebridge Resideo UI. Default is 8585.",
-        "x-schema-form": {
-          "type": "number"
-        },
-        "condition": {
-          "functionBody": "return (!model.callbackUrl);"
-        }
-      },
       "credentials": {
         "type": "object",
         "properties": {
@@ -236,6 +211,16 @@
                             "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].deviceID && model.options.devices[arrayIndices].deviceClass === 'Thermostat' && (model.options.devices[arrayIndices].deviceModel === 'T9' || model.options.devices[arrayIndices].deviceModel === 'T10'));"
                           }
                         },
+                        "pushRate": {
+                          "title": "Room Sensor Thermostat Push Rate",
+                          "type": "number",
+                          "minimum": 30,
+                          "placeholder": 360,
+                          "description": "Indicates the number of seconds between pushes to the Resideo API.",
+                          "condition": {
+                            "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].deviceID && model.options.devices[arrayIndices].deviceClass === 'Thermostat' && (model.options.devices[arrayIndices].deviceModel === 'T9' || model.options.devices[arrayIndices].deviceModel === 'T10'));"
+                          }
+                        },
                         "logging": {
                           "title": "Room Sensor Thermostat Logging Override Setting",
                           "type": "string",
@@ -307,6 +292,16 @@
                           "minimum": 30,
                           "placeholder": 360,
                           "description": "Indicates the number of seconds between polls of Resideo API.",
+                          "condition": {
+                            "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].deviceClass === 'Thermostat' && model.options.devices[arrayIndices].deviceID && (model.options.devices[arrayIndices].deviceModel === 'T9' || model.options.devices[arrayIndices].deviceModel === 'T10') && !model.options.devices[arrayIndices].thermostat.roomsensor.hide_roomsensor);"
+                          }
+                        },
+                        "pushRate": {
+                          "title": "Room Sensor Push Rate",
+                          "type": "number",
+                          "minimum": 30,
+                          "placeholder": 360,
+                          "description": "Indicates the number of seconds between pushes to the Resideo API.",
                           "condition": {
                             "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].deviceClass === 'Thermostat' && model.options.devices[arrayIndices].deviceID && (model.options.devices[arrayIndices].deviceModel === 'T9' || model.options.devices[arrayIndices].deviceModel === 'T10') && !model.options.devices[arrayIndices].thermostat.roomsensor.hide_roomsensor);"
                           }
@@ -402,6 +397,16 @@
                   "minimum": 30,
                   "placeholder": 360,
                   "description": "Indicates the number of seconds between polls of Resideo API.",
+                  "condition": {
+                    "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && (model.options.devices[arrayIndices].deviceClass === 'Thermostat' || model.options.devices[arrayIndices].deviceClass === 'LeakDetector') && model.options.devices[arrayIndices].deviceID);"
+                  }
+                },
+                "pushRate": {
+                  "title": "Device Refresh Rate",
+                  "type": "number",
+                  "minimum": 30,
+                  "placeholder": 360,
+                  "description": "Indicates the number of seconds between pushes to the of Resideo API.",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && (model.options.devices[arrayIndices].deviceClass === 'Thermostat' || model.options.devices[arrayIndices].deviceClass === 'LeakDetector') && model.options.devices[arrayIndices].deviceID);"
                   }
@@ -531,7 +536,14 @@
               "items": [
                 "options.devices[].thermostat.roompriority.deviceType",
                 "options.devices[].thermostat.roompriority.priorityType",
-                "options.devices[].thermostat.roompriority.refreshRate",
+                {
+                  "key": "options.devices[].thermostat.roompriority.refreshRate",
+                  "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the Resido API. This interval applies only to this specific device's roompriority Thermostat(s).</em>"
+                },
+                {
+                  "key": "options.devices[].thermostat.roompriority.pushRate",
+                  "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the Resideo API for this specific device's roompriority Thermostat(s).</em>"
+                },
                 "options.devices[].thermostat.roompriority.logging"
               ]
             },
@@ -545,14 +557,28 @@
                 "options.devices[].thermostat.roomsensor.hide_temperature",
                 "options.devices[].thermostat.roomsensor.hide_humidity",
                 "options.devices[].thermostat.roomsensor.hide_occupancy",
-                "options.devices[].thermostat.roomsensor.refreshRate",
+                {
+                  "key": "options.devices[].thermostat.roomsensor.refreshRate",
+                  "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the Resido API. This interval applies only to this specific device's roomsensor(s).</em>"
+                },
+                {
+                  "key": "options.devices[].thermostat.roomsensor.pushRate",
+                  "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the Resideo API for this specific device's roomsensor(s).</em>"
+                },
                 "options.devices[].thermostat.roomsensor.logging"
               ]
             },
             "options.devices[].retry",
             "options.devices[].firmware",
             "options.devices[].external",
-            "options.devices[].refreshRate",
+            {
+              "key": "options.devices[].refreshRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the Resido API. This interval applies only to this specific device.</em>"
+            },
+            {
+              "key": "options.devices[].pushRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the Resideo API for this specific device.</em>"
+            },
             "options.devices[].logging"
           ]
         }
@@ -565,24 +591,14 @@
       "expanded": false,
       "items": [
         {
-          "type": "help",
-          "helpvalue": "<h5>Refresh Rate</h5><em class='primary-text'>Refresh Rate indicates the number of seconds between polls of the Resideo service.</em>"
-        },
-        {
           "key": "options.refreshRate",
-          "notitle": true
-        },
-        {
-          "type": "help",
-          "helpvalue": "<h5>Push Rate</h5><em class='primary-text'>Push Rate indicates the number of seconds between pushes to Resideo API.</em>"
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the Resido API.</em>"
         },
         {
           "key": "options.pushRate",
-          "notitle": true
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the Resideo API.</em>"
         },
-        "options.logging",
-        "callbackUrl",
-        "port"
+        "options.logging"
       ]
     }
   ]

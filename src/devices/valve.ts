@@ -2,7 +2,7 @@
  *
  * valve.ts: homebridge-resideo.
  */
-import { request } from 'undici';
+//import { request } from 'undici';
 import { interval, Subject } from 'rxjs';
 import { deviceBase } from './device.js';
 import { debounceTime, skipWhile, take, tap } from 'rxjs/operators';
@@ -20,6 +20,7 @@ import type { devicesConfig, location, resideoDevice, payload } from '../setting
 export class Valve extends deviceBase {
   // Services
   private Valve: {
+    Name: CharacteristicValue
     Service: Service;
     Active: CharacteristicValue;
     InUse: CharacteristicValue;
@@ -43,39 +44,40 @@ export class Valve extends deviceBase {
 
     this.getValveConfigSettings(accessory, device);
 
-    // Initialize Valve property
-    this.Valve = {
-      Service: accessory.getService(this.hap.Service.Valve) as Service,
-      Active: accessory.context.Active || this.hap.Characteristic.Active.INACTIVE,
-      InUse: accessory.context.InUse || this.hap.Characteristic.InUse.NOT_IN_USE,
-      ValveType: accessory.context.ValveType || this.hap.Characteristic.ValveType.GENERIC_VALVE,
-    };
-
-    // Intial Refresh
-    this.refreshStatus();
-
     // this is subject we use to track when we need to POST changes to the Resideo API
     this.doValveUpdate = new Subject();
     this.valveUpdateInProgress = false;
 
-    // get the Valve service if it exists, otherwise create a new Valve service
-    // you can create multiple services for each accessory
-    (this.Valve.Service = accessory.getService(this.hap.Service.Valve)
-      ?? accessory.addService(this.hap.Service.Valve)), `${accessory.displayName}`;
+    // Initialize Valve property
+    accessory.context.Valve = accessory.context.Valve ?? {};
+    this.Valve = {
+      Name: accessory.context.Valve.Name ?? accessory.displayName,
+      Service: accessory.getService(this.hap.Service.Valve) ?? accessory.addService(this.hap.Service.Valve) as Service,
+      Active: accessory.context.Active ?? this.hap.Characteristic.Active.INACTIVE,
+      InUse: accessory.context.InUse ?? this.hap.Characteristic.InUse.NOT_IN_USE,
+      ValveType: accessory.context.ValveType ?? this.hap.Characteristic.ValveType.GENERIC_VALVE,
+    };
+    accessory.context.Valve = this.Valve as object;
 
     // set the service name, this is what is displayed as the default name on the Home app
-    this.Valve.Service.setCharacteristic(this.hap.Characteristic.Name, accessory.displayName);
-
-    // Active
-    this.Valve.Service.getCharacteristic(this.hap.Characteristic.Active).onSet(this.setActive.bind(this));
+    this.Valve.Service
+      .setCharacteristic(this.hap.Characteristic.Name, this.Valve.Name)
+      .setCharacteristic(this.hap.Characteristic.ValveType, this.valveType)
+      .getCharacteristic(this.hap.Characteristic.Active)
+      .onGet(() => {
+        return this.Valve.Active;
+      })
+      .onSet(this.setActive.bind(this));
 
     // InUse
-    this.Valve.Service.getCharacteristic(this.hap.Characteristic.InUse).onGet(() => {
-      return this.Valve.InUse;
-    });
+    this.Valve.Service
+      .getCharacteristic(this.hap.Characteristic.InUse)
+      .onGet(() => {
+        return this.Valve.InUse;
+      });
 
-    // Set valveType
-    this.Valve.Service.setCharacteristic(this.hap.Characteristic.ValveType, this.valveType);
+    // Intial Refresh
+    this.refreshStatus();
 
     // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
@@ -94,8 +96,7 @@ export class Valve extends deviceBase {
         tap(() => {
           this.valveUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000),
-      )
+        debounceTime(this.deviceUpdateRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();
@@ -125,7 +126,7 @@ export class Valve extends deviceBase {
     } else {
       this.Valve.Active = this.hap.Characteristic.Active.INACTIVE;
     }
-    this.Valve.Active === this.accessory.context.Active;
+    this.accessory.context.Active = this.Valve.Active;
 
     // InUse
     if (device.actuatorValve.valveStatus === 'Open') {
@@ -135,7 +136,7 @@ export class Valve extends deviceBase {
     }
     if (this.Valve.InUse !== this.accessory.context.InUse) {
       this.successLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`);
-      this.Valve.InUse;
+      this.accessory.context.InUse = this.Valve.InUse;
     }
   }
 
@@ -144,6 +145,12 @@ export class Valve extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
+      const device: any = (await this.platform.axios.get(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
+        params: {
+          locationId: this.location.locationID,
+        },
+      })).data;
+      /*
       const { body, statusCode } = await request(`${DeviceURL}/shutoffvalve/${this.device.deviceID}`, {
         method: 'GET',
         query: {
@@ -157,7 +164,7 @@ export class Valve extends deviceBase {
       });
       const action = 'refreshStatus';
       await this.statusCode(statusCode, action);
-      const device: any = await body.json();
+      const device: any = await body.json();*/
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`);
       this.parseStatus(device);
       this.updateHomeKitCharacteristics();
@@ -190,7 +197,13 @@ export class Valve extends deviceBase {
       } else {
         payload.state = 'closed';
       }
-      const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+      await this.platform.axios.post(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, payload, {
+        params: {
+          locationId: this.location.locationID,
+        },
+      });
+      /*
+      const { statusCode } = await request(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
         method: 'POST',
         body: JSON.stringify(payload),
         query: {
@@ -209,7 +222,7 @@ export class Valve extends deviceBase {
       } else {
         const action = 'pushChanges';
         await this.statusCode(statusCode, action);
-      }
+      }*/
     } catch (e: any) {
       const action = 'pushChanges';
       await this.resideoAPIError(e, action);

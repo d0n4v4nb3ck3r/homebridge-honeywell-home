@@ -2,14 +2,12 @@
  *
  * platform.ts: homebridge-resideo.
  */
-import {
-  DeviceURL,
-  LocationURL,
-  PLATFORM_NAME,
-  PLUGIN_NAME,
+import type { InternalAxiosRequestConfig, AxiosInstance } from 'axios';
+import axios from 'axios';
+
+import type {
   ResideoPlatformConfig,
   T9groups,
-  TokenURL,
   accessoryAttribute,
   devicesConfig,
   location,
@@ -17,10 +15,17 @@ import {
   resideoDevice,
   sensorAccessory,
 } from './settings.js';
+import {
+  DeviceURL,
+  LocationURL,
+  PLATFORM_NAME,
+  PLUGIN_NAME,
+  TokenURL,
+} from './settings.js';
 import { readFile } from 'fs/promises';
-import { request } from 'undici';
+//import { request } from 'undici';
 import { readFileSync, writeFileSync } from 'fs';
-import { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge';
+import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge';
 import { stringify } from 'querystring';
 import { Valve } from './devices/valve.js';
 import { LeakSensor } from './devices/leaksensors.js';
@@ -39,6 +44,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   public readonly log: Logging;
   protected readonly hap: HAP;
   public config!: ResideoPlatformConfig;
+
+  public axios: AxiosInstance = axios.create({
+    responseType: 'json',
+  });
 
   // Resideo API
   public sensorData = [];
@@ -88,6 +97,14 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.apiError(e);
       return;
     }
+    // setup axios interceptor to add headers / api key to each request
+    this.axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
+      request.headers!.Authorization = `Bearer ${this.config.credentials?.accessToken}`;
+      request.params = request.params || {};
+      request.params.apikey = this.config.credentials?.consumerKey;
+      request.headers!['Content-Type'] = 'application/json';
+      return request;
+    });
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -201,36 +218,69 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
    */
   async getAccessToken() {
     try {
-      if (this.config.credentials!.consumerSecret && this.config.credentials!.consumerKey && this.config.credentials!.refreshToken) {
-        this.debugLog(`consumerKey: ${this.config.credentials!.consumerKey},` + ` consumerSecret: ${this.config.credentials!.consumerSecret},`
-          + ` refreshToken: ${this.config.credentials!.refreshToken}` + ` accessToken: ${this.config.credentials!.accessToken}`);
-        const { body, statusCode } = await request(TokenURL, {
+      let result: any;
+      if (this.config.credentials?.consumerSecret) {
+        result = (await axios({
+          url: TokenURL,
           method: 'POST',
           headers: {
-            Authorization:
-              `Basic ${Buffer.from(`${this.config.credentials!.consumerKey}:${this.config.credentials!.consumerSecret}`).toString('base64')}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: stringify({
+          auth: {
+            username: this.config.credentials?.consumerKey ?? '',
+            password: this.config.credentials?.consumerSecret ?? '',
+          },
+          data: stringify({
             grant_type: 'refresh_token',
             refresh_token: this.config.credentials!.refreshToken,
           }),
-        });
-        const action = 'getAccessToken';
-        await this.statusCode(statusCode, action);
-        const result: any = await body.json();
-        this.debugLog(`(getAccessToken) Result: ${JSON.stringify(result)}`);
-        this.config.credentials!.accessToken = result.access_token;
-        this.debugLog(`Got access token: ${this.config.credentials!.accessToken}`);
-        // check if the refresh token has changed
-        if (result.refresh_token !== this.config.credentials!.refreshToken) {
-          this.debugLog(`New refresh token: ${result.refresh_token}`);
-          await this.updateRefreshToken(result.refresh_token);
-        }
-        this.config.credentials!.refreshToken = result.refresh_token;
+          responseType: 'json',
+        })
+        ).data;
       } else {
         this.warnLog('Please re-link your account in the Homebridge UI.');
       }
+
+      this.config.credentials!.accessToken = result.access_token;
+      this.debugLog(`Got access token: ${this.config.credentials!.accessToken}`);
+      // check if the refresh token has changed
+      if (result.refresh_token !== this.config.credentials!.refreshToken) {
+        this.debugLog(`New refresh token: ${result.refresh_token}`);
+        await this.updateRefreshToken(result.refresh_token);
+      }
+
+      this.config.credentials!.refreshToken = result.refresh_token;
+      /*
+        if (this.config.credentials!.consumerSecret && this.config.credentials!.consumerKey && this.config.credentials!.refreshToken) {
+          this.debugLog(`consumerKey: ${this.config.credentials!.consumerKey},` + ` consumerSecret: ${this.config.credentials!.consumerSecret},`
+            + ` refreshToken: ${this.config.credentials!.refreshToken}` + ` accessToken: ${this.config.credentials!.accessToken}`);
+          const { body, statusCode } = await request(TokenURL, {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Basic ${Buffer.from(`${this.config.credentials!.consumerKey}:${this.config.credentials!.consumerSecret}`).toString('base64')}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: stringify({
+              grant_type: 'refresh_token',
+              refresh_token: this.config.credentials!.refreshToken,
+            }),
+          });
+          const action = 'getAccessToken';
+          await this.statusCode(statusCode, action);
+          const result: any = await body.json();
+          this.debugLog(`(getAccessToken) Result: ${JSON.stringify(result)}`);
+          this.config.credentials!.accessToken = result.access_token;
+          this.debugLog(`Got access token: ${this.config.credentials!.accessToken}`);
+          // check if the refresh token has changed
+          if (result.refresh_token !== this.config.credentials!.refreshToken) {
+            this.debugLog(`New refresh token: ${result.refresh_token}`);
+            await this.updateRefreshToken(result.refresh_token);
+          }
+          this.config.credentials!.refreshToken = result.refresh_token;
+        } else {
+          this.warnLog('Please re-link your account in the Homebridge UI.');
+        }*/
     } catch (e: any) {
       this.action = 'refresh access token';
       this.apiError(e);
@@ -286,6 +336,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
    */
   async discoverlocations() {
     this.debugLog(`accessToken: ${this.config.credentials?.accessToken}, consumerKey: ${this.config.credentials?.consumerKey}`);
+    const locations = (await this.axios.get(LocationURL)).data;
+    /*
     const { body, statusCode } = await request(LocationURL, {
       method: 'GET',
       query: {
@@ -298,9 +350,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     });
     const action = 'discoverlocations';
     await this.statusCode(statusCode, action);
-    const locations: any = await body.json();
+    const locations: any = await body.json();*/
     this.debugLog(`(discoverlocations) Location: ${JSON.stringify(locations)}`);
-    //const locations = (await this.axios.get(LocationURL)).data;
     return locations;
   }
 
@@ -313,6 +364,12 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     group: T9groups,
   ) {
     if (!this.sensorData[device.deviceID] || this.sensorData[device.deviceID].timestamp < Date.now()) {
+      const response: any = await this.axios.get(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
+        params: {
+          locationId: location.locationID,
+        },
+      });
+      /*
       const { body, statusCode } = await request(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
         method: 'GET',
         query: {
@@ -328,10 +385,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       await this.statusCode(statusCode, action);
       const response: any = await body.json();
       this.debugLog(`(getCurrentSensorData) Response: ${JSON.stringify(response)}`);
-
+*/
       this.sensorData[device.deviceID] = {
         timestamp: Date.now() + 45000,
-        data: this.normalizeSensorDate(response),
+        data: this.normalizeSensorDate(response.data),
       };
       this.debugLog(`getCurrentSensorData ${device.deviceType} ${device.deviceModel}: ${this.sensorData[device.deviceID]}`);
     } else {
@@ -377,7 +434,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
                 sensorAccessory.accessoryAttribute.type.startsWith('Thermostat')
               ) {
                 this.debugLog(`groupId: ${group.id}, roomId: ${sensorAccessory.roomId}, accessoryId: ${sensorAccessory.accessoryId}, name: `
-                + `${sensorAccessory.accessoryAttribute.name}, softwareRevision: ${sensorAccessory.accessoryAttribute.softwareRevision}`);
+                  + `${sensorAccessory.accessoryAttribute.name}, softwareRevision: ${sensorAccessory.accessoryAttribute.softwareRevision}`);
                 return sensorAccessory.accessoryAttribute.softwareRevision;
               } else {
                 this.debugLog(`No Thermostat ${device} ${group} ${location.locationID}`);
@@ -442,7 +499,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private async deviceClass(location: location, device: resideoDevice & devicesConfig ) {
+  private async deviceClass(location: location, device: resideoDevice & devicesConfig) {
     switch (device.deviceClass) {
       case 'ShutoffValve':
         this.debugLog(`Discovered ${device.userDefinedDeviceName} ${device.deviceClass} @ ${location.name}`);
@@ -467,7 +524,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         break;
       default:
         this.infoLog(`Device: ${device.userDefinedDeviceName} with Device Class: `
-        + `${device.deviceClass} is currently not supported. Submit Feature Requests Here: https://git.io/JURLY`);
+          + `${device.deviceClass} is currently not supported. Submit Feature Requests Here: https://git.io/JURLY`);
     }
   }
 
@@ -748,10 +805,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `roomSensor.ts`
       new RoomSensors(this, accessory, location, device, sensorAccessory, group);
-      this.debugLog(
-        `${sensorAccessory.accessoryAttribute.type}` +
-        ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${accessory.UUID})`,
-      );
+      this.debugLog(`${sensorAccessory.accessoryAttribute.type}` +
+        ` uuid: ${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor, (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
       this.externalOrPlatform(device, accessory);
@@ -820,11 +875,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new RoomSensorThermostat(this, accessory, location, device, sensorAccessory, group);
-      this.debugLog(
-        `${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
+      this.debugLog(`${sensorAccessory.accessoryAttribute.type} Thermostat uuid:` +
         ` ${sensorAccessory.accessoryAttribute.name}-${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-` +
-        `RoomSensorThermostat, (${accessory.UUID})`,
-      );
+        `RoomSensorThermostat, (${accessory.UUID})`);
 
       // publish device externally or link the accessory to your platform
       this.externalOrPlatform(device, accessory);
@@ -973,8 +1026,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.log.error(`Failed to ${this.action}: Unprocessable Entity`);
       this.debugLog(
         'The client has made a valid request, but the server cannot process it.' +
-        ' This is often used for APIs for which certain limits have been exceeded.',
-      );
+        ' This is often used for APIs for which certain limits have been exceeded.');
     } else if (e.message.includes('429')) {
       this.log.error(`Failed to ${this.action}: Too Many Requests`);
       this.debugLog('The client has exceeded the number of requests allowed for a given time window.');
@@ -1061,8 +1113,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     const json = JSON.parse(
       await readFile(
         new URL('../package.json', import.meta.url),
-        'utf-8',
-      ),
+        'utf-8'),
     );
     this.debugLog(`Plugin Version: ${json.version}`);
     this.version = json.version;

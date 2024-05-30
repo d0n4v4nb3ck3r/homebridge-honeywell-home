@@ -2,7 +2,7 @@
  *
  * leaksensors.ts: homebridge-resideo.
  */
-import { request } from 'undici';
+//import { request } from 'undici';
 import { deviceBase } from './device.js';
 import { interval, Subject } from 'rxjs';
 import { DeviceURL } from '../settings.js';
@@ -10,7 +10,7 @@ import { skipWhile, take } from 'rxjs/operators';
 
 import type { ResideoPlatform } from '../platform.js';
 import type { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
-import type { devicesConfig, location, resideoDevice } from '../settings.js';
+import type { CurrentSensorReadings, devicesConfig, location, resideoDevice } from '../settings.js';
 
 /**
  * Platform Accessory
@@ -20,6 +20,7 @@ import type { devicesConfig, location, resideoDevice } from '../settings.js';
 export class LeakSensor extends deviceBase {
   // Services
   private Battery: {
+    Name: CharacteristicValue
     Service: Service;
     BatteryLevel: CharacteristicValue;
     ChargingState: CharacteristicValue;
@@ -27,17 +28,20 @@ export class LeakSensor extends deviceBase {
   };
 
   private LeakSensor?: {
+    Name: CharacteristicValue
     Service: Service;
     StatusActive: CharacteristicValue;
     LeakDetected: CharacteristicValue;
   };
 
   private HumiditySensor?: {
+    Name: CharacteristicValue
     Service: Service;
     CurrentRelativeHumidity: CharacteristicValue;
   };
 
   private TemperatureSensor?: {
+    Name: CharacteristicValue
     Service: Service;
     CurrentTemperature: CharacteristicValue;
   };
@@ -54,90 +58,86 @@ export class LeakSensor extends deviceBase {
   ) {
     super(platform, accessory, location, device);
 
-    // Initialize Valve property
-    this.Battery = {
-      Service: accessory.getService(this.hap.Service.Battery) as Service,
-      BatteryLevel: accessory.context.BatteryLevel || 100,
-      ChargingState: accessory.context.ChargingState || this.hap.Characteristic.ChargingState.NOT_CHARGEABLE,
-      StatusLowBattery: accessory.context.StatusLowBattery || this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
-    };
-
-    // Initialize LeakSensor property
-    if (!device.leaksensor?.hide_leak) {
-      this.LeakSensor = {
-        Service: accessory.getService(this.hap.Service.LeakSensor) as Service,
-        StatusActive: accessory.context.StatusActive || false,
-        LeakDetected: accessory.context.LeakDetected || this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED,
-      };
-    }
-
-    // Initialize TemperatureSensor property
-    if (!device.leaksensor?.hide_temperature) {
-      this.TemperatureSensor = {
-        Service: accessory.getService(this.hap.Service.TemperatureSensor) as Service,
-        CurrentTemperature: accessory.context.CurrentTemperature || 20,
-      };
-    }
-
-    // Initialize HumiditySensor property
-    if (!device.leaksensor?.hide_humidity) {
-      this.HumiditySensor = {
-        Service: accessory.getService(this.hap.Service.HumiditySensor) as Service,
-        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity || 50,
-      };
-    }
-
-    // Intial Refresh
-    this.refreshStatus();
-
     // this is subject we use to track when we need to POST changes to the Resideo API
     this.doSensorUpdate = new Subject();
     this.SensorUpdateInProgress = false;
 
-    // get the Battery service if it exists, otherwise create a new Battery service
-    (this.Battery.Service = accessory.getService(this.hap.Service.Battery)
-      || accessory.addService(this.hap.Service.Battery)), `${accessory.displayName} Battery`;
-
+    // Initialize Battery Service
+    accessory.context.Battery = accessory.context.Battery ?? {};
+    this.Battery = {
+      Name: accessory.context.Battery.Name ?? `${accessory.displayName} Battery`,
+      Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
+      BatteryLevel: accessory.context.BatteryLevel ?? 100,
+      ChargingState: accessory.context.ChargingState ?? this.hap.Characteristic.ChargingState.NOT_CHARGEABLE,
+      StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+    };
+    accessory.context.Battery = this.Battery as object;
     // set the service name, this is what is displayed as the default name on the Home app
-    this.Battery.Service.setCharacteristic(this.hap.Characteristic.Name, accessory.displayName);
+    this.Battery.Service
+      .setCharacteristic(this.hap.Characteristic.Name, this.Battery.Name)
+      .setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE)
+      .getCharacteristic(this.hap.Characteristic.BatteryLevel)
+      .onGet(() => {
+        return this.Battery.BatteryLevel;
+      });
 
-    // Battery Level
-    this.Battery.Service.getCharacteristic(this.hap.Characteristic.BatteryLevel).onGet(() => {
-      return this.Battery.BatteryLevel;
-    });
-
-    // Charging State
-    this.Battery.Service.setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE);
-
-    // Leak Sensor Service
-    if (this.device.leaksensor?.hide_leak) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Leak Sensor Service`);
-      this.LeakSensor!.Service = this.accessory.getService(this.hap.Service.LeakSensor) as Service;
-      accessory.removeService(this.LeakSensor!.Service);
-    } else if (!this.LeakSensor?.Service) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Leak Sensor Service`);
-      (this.LeakSensor!.Service = this.accessory.getService(this.hap.Service.LeakSensor)
-        || this.accessory.addService(this.hap.Service.LeakSensor)), `${accessory.displayName} Leak Sensor`;
-
-      this.LeakSensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Leak Sensor`);
+    // Initialize Leak Sensor Service
+    if (device.leaksensor?.hide_leak) {
+      if (this.LeakSensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Leak Sensor Service`);
+        this.LeakSensor.Service = accessory.getService(this.hap.Service.LeakSensor) as Service;
+        accessory.removeService(this.LeakSensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Leak Sensor Service Not Found`);
+      }
     } else {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Leak Sensor Service Not Added`);
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Leak Sensor Service`);
+      accessory.context.LeakSensor = accessory.context.LeakSensor ?? {};
+      this.LeakSensor = {
+        Name: accessory.context.LeakSensor.Name ?? `${accessory.displayName} Leak Sensor`,
+        Service: accessory.getService(this.hap.Service.LeakSensor) ?? accessory.addService(this.hap.Service.LeakSensor) as Service,
+        StatusActive: accessory.context.StatusActive ?? false,
+        LeakDetected: accessory.context.LeakDetected ?? this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED,
+      };
+      accessory.context.LeakSensor = this.LeakSensor as object;
+
+      // Initialize Leak Sensor Characteristic
+      this.LeakSensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.LeakSensor.Name)
+        .getCharacteristic(this.hap.Characteristic.StatusActive)
+        .onGet(() => {
+          return this.LeakSensor!.StatusActive;
+        });
+
+      this.LeakSensor.Service
+        .getCharacteristic(this.hap.Characteristic.LeakDetected)
+        .onGet(() => {
+          return this.LeakSensor!.LeakDetected;
+        });
     }
 
-    // Temperature Sensor Service
-    if (this.device.leaksensor?.hide_temperature) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Temperature Sensor Service`);
-      this.TemperatureSensor!.Service = this.accessory.getService(this.hap.Service.TemperatureSensor) as Service;
-      accessory.removeService(this.TemperatureSensor!.Service);
-    } else if (!this.TemperatureSensor?.Service) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Temperature Sensor Service`);
-      (this.TemperatureSensor!.Service =
-        this.accessory.getService(this.hap.Service.TemperatureSensor)
-        || this.accessory.addService(this.hap.Service.TemperatureSensor)), `${accessory.displayName} Temperature Sensor`;
+    // Initialize Temperature Sensor Service
+    if (device.leaksensor?.hide_temperature) {
+      if (this.TemperatureSensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Temperature Sensor Service`);
+        this.TemperatureSensor.Service = accessory.getService(this.hap.Service.TemperatureSensor) as Service;
+        accessory.removeService(this.TemperatureSensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Temperature Sensor Service Not Found`);
+      }
+    } else {
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Temperature Sensor Service`);
+      accessory.context.TemperatureSensor = accessory.context.TemperatureSensor ?? {};
+      this.TemperatureSensor = {
+        Name: accessory.context.TemperatureSensor.Name ?? `${accessory.displayName} Temperature Sensor`,
+        Service: accessory.getService(this.hap.Service.TemperatureSensor) ?? accessory.addService(this.hap.Service.TemperatureSensor) as Service,
+        CurrentTemperature: accessory.context.CurrentTemperature ?? 20,
+      };
+      accessory.context.TemperatureSensor = this.TemperatureSensor as object;
 
-      this.TemperatureSensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Temperature Sensor`);
-
-      this.TemperatureSensor!.Service
+      // Initialize Temperature Sensor Characteristic
+      this.TemperatureSensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.TemperatureSensor.Name)
         .getCharacteristic(this.hap.Characteristic.CurrentTemperature)
         .setProps({
           minValue: -273.15,
@@ -147,37 +147,49 @@ export class LeakSensor extends deviceBase {
         .onGet(async () => {
           return this.TemperatureSensor!.CurrentTemperature;
         });
-    } else {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Temperature Sensor Service Not Added`);
+
     }
 
-    // Humidity Sensor Service
-    if (this.device.leaksensor?.hide_humidity) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Humidity Sensor Service`);
-      this.HumiditySensor!.Service = this.accessory.getService(this.hap.Service.HumiditySensor) as Service;
-      accessory.removeService(this.HumiditySensor!.Service);
-    } else if (!this.HumiditySensor?.Service) {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Humidity Sensor Service`);
-      (this.HumiditySensor!.Service =
-        this.accessory.getService(this.hap.Service.HumiditySensor)
-        || this.accessory.addService(this.hap.Service.HumiditySensor)), `${accessory.displayName} Humidity Sensor`;
+    // Initialize Humidity Sensor Service
+    if (device.leaksensor?.hide_humidity) {
+      if (this.HumiditySensor) {
+        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Humidity Sensor Service`);
+        this.HumiditySensor.Service = accessory.getService(this.hap.Service.HumiditySensor) as Service;
+        accessory.removeService(this.HumiditySensor.Service);
+      } else {
+        this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Humidity Sensor Service Not Found`);
+      }
+    } else if (device.indoorHumidity) {
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Humidity Sensor Service`);
+      accessory.context.HumiditySensor = accessory.context.HumiditySensor ?? {};
+      this.HumiditySensor = {
+        Name: accessory.context.HumiditySensor.Name ?? `${accessory.displayName} Humidity Sensor`,
+        Service: accessory.getService(this.hap.Service.HumiditySensor) ?? accessory.addService(this.hap.Service.HumiditySensor) as Service,
+        CurrentRelativeHumidity: accessory.context.CurrentRelativeHumidity ?? 50,
+      };
+      accessory.context.HumiditySensor = this.HumiditySensor as object;
 
-      this.HumiditySensor!.Service.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Humidity Sensor`);
+      // Initialize Humidity Sensor Characteristic
+      this.HumiditySensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.HumiditySensor.Name);
 
-      this.HumiditySensor!.Service
+      this.HumiditySensor.Service
         .getCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity)
         .setProps({
           minStep: 0.1,
         })
-        .onGet(async () => {
+        .onGet(() => {
           return this.HumiditySensor!.CurrentRelativeHumidity;
         });
+
     } else {
-      this.debugLog(`${device.deviceClass} ${accessory.displayName} Humidity Sensor Service Not Added`);
+      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Humidity Sensor Service Not Added`);
     }
 
-    // Retrieve initial values and updateHomekit
+    // Intial Refresh
     this.refreshStatus();
+
+    // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
 
     // Start an update interval
@@ -205,28 +217,37 @@ export class LeakSensor extends deviceBase {
 
     // LeakSensor Service
     if (!device.leaksensor?.hide_leak) {
-      // Active
-      this.LeakSensor!.StatusActive = device.hasDeviceCheckedIn;
+      if (this.LeakSensor) {
+        // Active
+        this.LeakSensor.StatusActive = device.hasDeviceCheckedIn;
 
-      // LeakDetected
-      if (device.waterPresent === true) {
-        this.LeakSensor!.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_DETECTED;
-      } else {
-        this.LeakSensor!.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED;
+        // LeakDetected
+        if (device.waterPresent === true) {
+          this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_DETECTED;
+        } else {
+          this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED;
+        }
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} StatusActive: ${this.LeakSensor.StatusActive},`
+          + ` LeakDetected: ${this.LeakSensor.LeakDetected}`);
       }
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} LeakDetected: ${this.LeakSensor!.LeakDetected}`);
     }
+
+    const currentSensorReadings = device.currentSensorReadings as CurrentSensorReadings ?? { temperature: 20, humidity: 50 };
 
     // Temperature Service
     if (!device.leaksensor?.hide_temperature) {
-      this.TemperatureSensor!.CurrentTemperature = device.currentSensorReadings.temperature;
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor!.CurrentTemperature}°`);
+      if (this.TemperatureSensor) {
+        this.TemperatureSensor.CurrentTemperature = currentSensorReadings.temperature;
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°`);
+      }
     }
 
     // Humidity Service
     if (!device.leaksensor?.hide_humidity) {
-      this.HumiditySensor!.CurrentRelativeHumidity = device.currentSensorReadings.humidity;
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor!.CurrentRelativeHumidity}%`);
+      if (this.HumiditySensor) {
+        this.HumiditySensor.CurrentRelativeHumidity = currentSensorReadings.humidity;
+        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`);
+      }
     }
   }
 
@@ -235,7 +256,13 @@ export class LeakSensor extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      const { body, statusCode } = await request(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
+      const device: any = (await this.platform.axios.get(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`,
+        {
+          params: {
+            locationId: this.location.locationID,
+          },
+        })).data;
+      /*const { body, statusCode } = await request(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
         method: 'GET',
         query: {
           'locationId': this.location.locationID,
@@ -248,7 +275,7 @@ export class LeakSensor extends deviceBase {
       });
       const action = 'refreshStatus';
       await this.statusCode(statusCode, action);
-      const device: any = await body.json();
+      const device: any = await body.json();*/
       this.debugLog(`(refreshStatus) ${device.deviceClass} device: ${JSON.stringify(device)}`);
       await this.parseStatus(device);
       await this.updateHomeKitCharacteristics();
