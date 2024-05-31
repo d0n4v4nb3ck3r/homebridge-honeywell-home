@@ -84,14 +84,14 @@ export class LeakSensor extends deviceBase {
     // Initialize Leak Sensor Service
     if (device.leaksensor?.hide_leak) {
       if (this.LeakSensor) {
-        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Leak Sensor Service`);
+        this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Leak Sensor Service`);
         this.LeakSensor.Service = accessory.getService(this.hap.Service.LeakSensor) as Service;
         accessory.removeService(this.LeakSensor.Service);
       } else {
         this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Leak Sensor Service Not Found`);
       }
     } else {
-      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Leak Sensor Service`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Leak Sensor Service`);
       accessory.context.LeakSensor = accessory.context.LeakSensor ?? {};
       this.LeakSensor = {
         Name: accessory.context.LeakSensor.Name ?? `${accessory.displayName} Leak Sensor`,
@@ -119,14 +119,14 @@ export class LeakSensor extends deviceBase {
     // Initialize Temperature Sensor Service
     if (device.leaksensor?.hide_temperature) {
       if (this.TemperatureSensor) {
-        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Temperature Sensor Service`);
+        this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Temperature Sensor Service`);
         this.TemperatureSensor.Service = accessory.getService(this.hap.Service.TemperatureSensor) as Service;
         accessory.removeService(this.TemperatureSensor.Service);
       } else {
         this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Temperature Sensor Service Not Found`);
       }
     } else {
-      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Temperature Sensor Service`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Temperature Sensor Service`);
       accessory.context.TemperatureSensor = accessory.context.TemperatureSensor ?? {};
       this.TemperatureSensor = {
         Name: accessory.context.TemperatureSensor.Name ?? `${accessory.displayName} Temperature Sensor`,
@@ -153,14 +153,14 @@ export class LeakSensor extends deviceBase {
     // Initialize Humidity Sensor Service
     if (device.leaksensor?.hide_humidity) {
       if (this.HumiditySensor) {
-        this.debugLog(`${device.deviceClass}: ${accessory.displayName} Removing Humidity Sensor Service`);
+        this.debugLog(`${device.deviceClass} ${accessory.displayName} Removing Humidity Sensor Service`);
         this.HumiditySensor.Service = accessory.getService(this.hap.Service.HumiditySensor) as Service;
         accessory.removeService(this.HumiditySensor.Service);
       } else {
         this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Humidity Sensor Service Not Found`);
       }
     } else if (device.indoorHumidity) {
-      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Add Humidity Sensor Service`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Humidity Sensor Service`);
       accessory.context.HumiditySensor = accessory.context.HumiditySensor ?? {};
       this.HumiditySensor = {
         Name: accessory.context.HumiditySensor.Name ?? `${accessory.displayName} Humidity Sensor`,
@@ -183,7 +183,7 @@ export class LeakSensor extends deviceBase {
         });
 
     } else {
-      this.debugLog(`${device.deviceClass}: ${accessory.displayName} Humidity Sensor Service Not Added`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Humidity Sensor Service Not Added`);
     }
 
     // Intial Refresh
