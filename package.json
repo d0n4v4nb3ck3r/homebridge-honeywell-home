@@ -1,7 +1,7 @@
 {
   "displayName": "Resideo",
   "name": "homebridge-resideo",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "The Resideo plugin allows you to access your Resideo device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -81,6 +81,6 @@
     "rimraf": "^5.0.7",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "typescript-eslint": "^8.0.0-alpha.21"
+    "typescript-eslint": "^8.0.0-alpha.24"
   }
 }

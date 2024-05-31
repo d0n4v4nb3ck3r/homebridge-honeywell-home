@@ -3,6 +3,7 @@
  * settings.ts: homebridge-resideo.
  */
 import type { PlatformConfig } from 'homebridge';
+
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
  */
@@ -65,7 +66,7 @@ export interface devicesConfig extends resideoDevice {
   external?: boolean;
   logging?: string;
   refreshRate?: number;
-  updateRate?: number;
+  pushRate?: number;
   maxRetries?: number;
   delayBetweenRetries?: number;
   retry?: boolean;
@@ -96,6 +97,7 @@ export type roomsensor = {
   hide_humidity?: boolean;
   logging?: string;
   refreshRate?: number;
+  pushRate?: number;
 };
 
 export type roompriority = {
@@ -103,6 +105,7 @@ export type roompriority = {
   priorityType?: string;
   logging?: string;
   refreshRate?: number;
+  pushRate?: number;
 };
 
 export type valve = {
@@ -357,7 +360,6 @@ export type sensorAccessory = {
   accessoryAttribute: accessoryAttribute;
   accessoryValue: accessoryValue;
   roomId: number;
-  deviceID: string;
 };
 
 export type accessoryAttribute = {

@@ -130,10 +130,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
             this.apiError(e);
           }
         } else {
-          this.log.error('Failed to Discover Locations. Re-Link Your Resideo Account.');
+          this.errorLog('Failed to Discover Locations. Re-Link Your Resideo Account.');
         }
       } else {
-        this.log.error('Missing Access Token. Re-Link Your Resideo Account.');
+        this.errorLog('Missing Access Token. Re-Link Your Resideo Account.');
       }
     });
   }
@@ -174,24 +174,16 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       throw new Error('Refresh Rate must be above 30 seconds.');
     }
 
-    if (this.config.disablePlugin) {
-      this.log.error('Plugin is disabled.');
-    }
-
-    if (!this.config.options.refreshRate && !this.config.disablePlugin) {
+    if (!this.config.options.refreshRate) {
       // default 120 seconds (2 minutes)
       this.config.options.refreshRate = 120;
-      if (this.platformLogging?.includes('debug')) {
-        this.warnLog('Using Default Refresh Rate of 2 Minutes.');
-      }
+      this.debugWarnLog('Using Default Refresh Rate of 2 Minutes.');
     }
 
-    if (!this.config.options.pushRate && !this.config.disablePlugin) {
+    if (!this.config.options.pushRate) {
       // default 100 milliseconds
       this.config.options.pushRate = 0.1;
-      if (this.platformLogging?.includes('debug')) {
-        this.warnLog('Using Default Push Rate.');
-      }
+      this.debugWarnLog('Using Default Push Rate.');
     }
 
     if (!this.config.credentials) {
@@ -495,7 +487,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         }
       }
     } else {
-      this.log.error('Failed to Discover Locations. Re-Link Your Resideo Account.');
+      this.errorLog('Failed to Discover Locations. Re-Link Your Resideo Account.');
     }
   }
 
@@ -549,7 +541,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
                     if (sensorAccessory.accessoryAttribute.model === '0') {
                       sensorAccessory.accessoryAttribute.model = '4352';
                     }
-                    sensorAccessory.deviceID = `${sensorAccessory.accessoryId}${sensorAccessory.roomId}${sensorAccessory.accessoryAttribute.model}`;
                     this.createRoomSensors(location, device, group, sensorAccessory);
                     this.createRoomSensorThermostat(location, device, group, sensorAccessory);
                   }
@@ -568,10 +559,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
        * Room Priority
        * This will display what room priority option that has been selected.
        */
-      if (device.thermostat?.roompriority.deviceType && !device.hide_device && !this.config.disablePlugin) {
+      if (device.thermostat?.roompriority.deviceType && !device.hide_device) {
         this.warnLog('Displaying Thermostat(s) for Each Room Sensor(s).');
       }
-      if (!device.thermostat?.roompriority.deviceType && !device.hide_device && !this.config.disablePlugin) {
+      if (!device.thermostat?.roompriority.deviceType && !device.hide_device) {
         this.warnLog('Only Displaying Room Sensor(s).');
       }
     }
@@ -589,7 +580,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device && !this.config.disablePlugin) {
+      if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
@@ -606,7 +597,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
       }
-    } else if (!device.hide_device && !this.config.disablePlugin) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`);
@@ -629,14 +620,12 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      if (this.platformLogging?.includes('debug')) {
-        this.log.error(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceModel} ` + `DeviceID: ${device.deviceID}`);
-        this.log.error('Check Config to see if DeviceID is being Hidden.');
-      }
+      this.debugErrorLog(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceModel} DeviceID: `
+        + `${device.deviceID}, Check Config to see if DeviceID is being Hidden.`);
     }
   }
 
-  private createLeak(location: location, device: resideoDevice & devicesConfig) {
+  private async createLeak(location: location, device: resideoDevice & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(`${device.deviceID}-${device.deviceClass}`);
 
     // see if an accessory with the same uuid has already been registered and restored from
@@ -645,7 +634,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device && !this.config.disablePlugin) {
+      if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
@@ -662,7 +651,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
       }
-    } else if (!device.hide_device && !this.config.disablePlugin) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`);
@@ -688,14 +677,12 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      if (this.platformLogging?.includes('debug')) {
-        this.log.error(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceType} ` + ` DeviceID: ${device.deviceID}`);
-        this.log.error('Check Config to see if DeviceID is being Hidden.');
-      }
+      this.debugErrorLog(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceType} DeviceID: `
+        + `${device.deviceID}, Check Config to see if DeviceID is being Hidden.`);
     }
   }
 
-  private createValve(location: location, device: resideoDevice & devicesConfig) {
+  private async createValve(location: location, device: resideoDevice & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(`${device.deviceID}-${device.deviceClass}`);
 
     // see if an accessory with the same uuid has already been registered and restored from
@@ -704,7 +691,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device && !this.config.disablePlugin) {
+      if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
@@ -721,7 +708,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
       }
-    } else if (!device.hide_device && !this.config.disablePlugin) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`);
@@ -747,31 +734,31 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      if (this.platformLogging?.includes('debug')) {
-        this.log.error(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceType} ` + ` DeviceID: ${device.deviceID}`);
-        this.log.error('Check Config to see if DeviceID is being Hidden.');
-      }
+      this.debugErrorLog(`Unable to Register new device: ${device.userDefinedDeviceName} ${device.deviceType} DeviceID: `
+        + `${device.deviceID}, Check Config to see if DeviceID is being Hidden.`);
     }
   }
 
-  private createRoomSensors(
+  private async createRoomSensors(
     location: location,
     device: resideoDevice & devicesConfig,
     group: T9groups,
     sensorAccessory: sensorAccessory,
   ) {
     // Room Sensor(s)
-    const uuid = this.api.hap.uuid.generate(`${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryId}-RoomSensor`);
+    const uuid =
+      this.api.hap.uuid.generate(`${sensorAccessory.accessoryAttribute.type}-${sensorAccessory.accessoryAttribute.serialNumber}-RoomSensor`);
     const existingAccessory = this.accessories.find((accessory) => accessory.UUID === uuid);
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device && !device.thermostat?.roomsensor?.hide_roomsensor && !this.config.disablePlugin) {
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${sensorAccessory.deviceID}`);
+      if (await this.registerDevice(device)) {
+        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`
+          + ` Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.displayName = sensorAccessory.accessoryAttribute.name;
-        existingAccessory.context.deviceID = sensorAccessory.deviceID;
+        existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber;
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model;
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory);
         this.api.updatePlatformAccessories([existingAccessory]);
@@ -786,11 +773,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
       }
-    } else if (!device.hide_device && !device.thermostat?.roomsensor?.hide_roomsensor && !this.config.disablePlugin) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} ` +
-          `Device ID: ${sensorAccessory.deviceID}`);
+          `Device ID: ${sensorAccessory.accessoryAttribute.serialNumber}`);
       }
 
       // create a new accessory
@@ -798,7 +785,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.deviceID = sensorAccessory.deviceID;
+      accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber;
       accessory.context.model = sensorAccessory.accessoryAttribute.model;
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory);
 
@@ -812,17 +799,12 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      if (this.platformLogging?.includes('debug')) {
-        this.log.error(
-          `Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} ` +
-          `DeviceID: ${sensorAccessory.deviceID}`,
-        );
-        this.log.error('Check Config to see if DeviceID is being Hidden.');
-      }
+      this.errorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} `
+        + `Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`);
     }
   }
 
-  private createRoomSensorThermostat(
+  private async createRoomSensorThermostat(
     location: location,
     device: resideoDevice & devicesConfig,
     group: T9groups,
@@ -836,12 +818,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     if (existingAccessory) {
       // the accessory already exists
-      if (device.thermostat?.roompriority?.deviceType && !device.hide_device && !this.config.disablePlugin) {
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${sensorAccessory.deviceID}`);
+      if (await this.registerDevice(device)) {
+        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`
+          + ` Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.displayName = sensorAccessory.accessoryAttribute.name;
-        existingAccessory.context.deviceID = sensorAccessory.deviceID;
+        existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber;
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model;
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory);
         this.api.updatePlatformAccessories([existingAccessory]);
@@ -856,11 +839,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory);
       }
-    } else if (device.thermostat?.roompriority?.deviceType && !device.hide_device && !this.config.disablePlugin) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} ` +
-          `Device ID: ${sensorAccessory.deviceID}`);
+          `Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`);
       }
 
       // create a new accessory
@@ -868,7 +851,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.deviceID = sensorAccessory.deviceID;
+      accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber;
       accessory.context.model = sensorAccessory.accessoryAttribute.model;
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory);
 
@@ -883,14 +866,34 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      if (this.platformLogging?.includes('debug')) {
-        this.log.error(
-          `Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} ` +
-          `DeviceID: ${sensorAccessory.deviceID}`,
-        );
-        this.log.error('Check Config to see if DeviceID is being Hidden.');
-      }
+      this.debugErrorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} `
+        + `Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`);
     }
+  }
+
+  async registerDevice(device: resideoDevice & devicesConfig) {
+    let registerDevice: boolean;
+    this.debugLog(`Device: ${device.userDefinedDeviceName} hide_roomsensor: ${device.thermostat?.roomsensor?.hide_roomsensor},`
+      + ` roompriority: ${device.thermostat?.roompriority?.deviceType}, hide_device: ${device.hide_device}`);
+    if (!device.thermostat?.roomsensor?.hide_roomsensor) {
+      registerDevice = true;
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`);
+    } else if (device.thermostat?.roompriority?.deviceType) {
+      registerDevice = true;
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`);
+    } else if (!device.hide_device) {
+      registerDevice = true;
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`);
+    } else {
+      registerDevice = false;
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`);
+    }
+    if (registerDevice === true) {
+      this.debugWarnLog(`Device: ${device.userDefinedDeviceName} will display in HomeKit`);
+    } else {
+      this.debugErrorLog(`Device: ${device.userDefinedDeviceName} will not display in HomeKit`);
+    }
+    return registerDevice;
   }
 
   private leaksensorFirmwareNewAccessory(device: resideoDevice & devicesConfig, accessory: PlatformAccessory) {
@@ -1005,40 +1008,38 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   apiError(e: any) {
     if (e.message.includes('400')) {
-      this.log.error(`Failed to ${this.action}: Bad Request`);
+      this.errorLog(`Failed to ${this.action}: Bad Request`);
       this.debugLog('The client has issued an invalid request. This is commonly used to specify validation errors in a request payload.');
     } else if (e.message.includes('401')) {
-      this.log.error(`Failed to ${this.action}: Unauthorized Request`);
+      this.errorLog(`Failed to ${this.action}: Unauthorized Request`);
       this.debugLog('Authorization for the API is required, but the request has not been authenticated.');
     } else if (e.message.includes('403')) {
-      this.log.error(`Failed to ${this.action}: Forbidden Request`);
+      this.errorLog(`Failed to ${this.action}: Forbidden Request`);
       this.debugLog('The request has been authenticated but does not have appropriate permissions, or a requested resource is not found.');
     } else if (e.message.includes('404')) {
-      this.log.error(`Failed to ${this.action}: Requst Not Found`);
+      this.errorLog(`Failed to ${this.action}: Requst Not Found`);
       this.debugLog('Specifies the requested path does not exist.');
     } else if (e.message.includes('406')) {
-      this.log.error(`Failed to ${this.action}: Request Not Acceptable`);
+      this.errorLog(`Failed to ${this.action}: Request Not Acceptable`);
       this.debugLog('The client has requested a MIME type via the Accept header for a value not supported by the server.');
     } else if (e.message.includes('415')) {
-      this.log.error(`Failed to ${this.action}: Unsupported Requst Header`);
+      this.errorLog(`Failed to ${this.action}: Unsupported Requst Header`);
       this.debugLog('The client has defined a contentType header that is not supported by the server.');
     } else if (e.message.includes('422')) {
-      this.log.error(`Failed to ${this.action}: Unprocessable Entity`);
+      this.errorLog(`Failed to ${this.action}: Unprocessable Entity`);
       this.debugLog(
         'The client has made a valid request, but the server cannot process it.' +
         ' This is often used for APIs for which certain limits have been exceeded.');
     } else if (e.message.includes('429')) {
-      this.log.error(`Failed to ${this.action}: Too Many Requests`);
+      this.errorLog(`Failed to ${this.action}: Too Many Requests`);
       this.debugLog('The client has exceeded the number of requests allowed for a given time window.');
     } else if (e.message.includes('500')) {
-      this.log.error(`Failed to ${this.action}: Internal Server Error`);
+      this.errorLog(`Failed to ${this.action}: Internal Server Error`);
       this.debugLog('An unexpected error on the SmartThings servers has occurred. These errors should be rare.');
     } else {
-      this.log.error(`Failed to ${this.action}`);
+      this.errorLog(`Failed to ${this.action}`);
     }
-    if (this.platformLogging?.includes('debug')) {
-      this.log.error(`Failed to ${this.action}, Error Message: ${stringify(e.message)}`);
-    }
+    this.debugErrorLog(`Failed to ${this.action}, Error Message: ${stringify(e.message)}`);
   }
 
   async statusCode(statusCode: number, action: string): Promise<void> {
@@ -1047,19 +1048,19 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.debugLog(`Standard Response, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 400:
-        this.log.error(`Bad Request, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`Bad Request, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 401:
-        this.log.error(`Unauthorized, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`Unauthorized, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 404:
-        this.log.error(`Not Found, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`Not Found, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 429:
-        this.log.error(`Too Many Requests, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`Too Many Requests, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 500:
-        this.log.error(`Internal Server Error (Meater Server), statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`Internal Server Error (Meater Server), statusCode: ${statusCode}, Action: ${action}`);
         break;
       default:
         this.infoLog(`Unknown statusCode: ${statusCode}, Report Bugs Here: https://bit.ly/homebridge-resideo-bug-report. Action: ${action}`);
@@ -1095,14 +1096,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       }
     } else if (this.debugMode) {
       this.platformLogging = 'debugMode';
-      if (this.platformLogging?.includes('debug')) {
-        this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-      }
+      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     } else {
       this.platformLogging = 'standard';
-      if (this.platformLogging?.includes('debug')) {
-        this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-      }
+      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     }
     if (this.debugMode) {
       this.platformLogging = 'debugMode';
@@ -1123,51 +1120,65 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
    * If device level logging is turned on, log to log.warn
    * Otherwise send debug logs to log.debug
    */
-  infoLog(...log: any[]) {
-    if (this.enablingPlatfromLogging()) {
+  infoLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
       this.log.info(String(...log));
     }
   }
 
-  warnLog(...log: any[]) {
-    if (this.enablingPlatfromLogging()) {
+  successLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
+      this.log.success(String(...log));
+    }
+  }
+
+  debugSuccessLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
+      if (this.platformLogging?.includes('debug')) {
+        this.log.success('[DEBUG]', String(...log));
+      }
+    }
+  }
+
+  warnLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
       this.log.warn(String(...log));
     }
   }
 
   debugWarnLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
-        this.log.warn('[WARN]', String(...log));
+        this.log.warn('[DEBUG]', String(...log));
       }
     }
   }
 
-  errorLog(...log: any[]) {
-    if (this.enablingPlatfromLogging()) {
+  errorLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
       this.log.error(String(...log));
     }
   }
 
   debugErrorLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
-        this.log.error('[ERROR]', String(...log));
+        this.log.error('[DEBUG]', String(...log));
       }
     }
   }
 
-  debugLog(...log: any[]) {
-    if (this.enablingPlatfromLogging()) {
+  debugLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging === 'debugMode') {
-        this.log.debug('[HOMEBRIDGE DEBUGMODE]', String(...log));
+        this.log.debug(String(...log));
       } else if (this.platformLogging === 'debug') {
         this.log.info('[DEBUG]', String(...log));
       }
     }
   }
 
-  enablingPlatfromLogging(): boolean {
+  enablingPlatformLogging(): boolean {
     return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
   }
 }

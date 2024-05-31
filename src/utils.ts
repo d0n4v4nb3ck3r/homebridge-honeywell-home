@@ -5,19 +5,6 @@
 
 /**
  * Converts the value to celsius if the temperature units are in Fahrenheit
-**/
-export function convertUnits(value: number, unit: string, convert?: string): number {
-  if (unit === 'CELSIUS' && convert === 'CELSIUS') {
-    return Math.round((value * 9) / 5 + 32);
-  } else if (unit === 'FAHRENHEIT' && convert === 'FAHRENHEIT') {
-    // celsius should be to the nearest 0.5 degree
-    return Math.round((5 / 9) * (value - 32) * 2) / 2;
-  }
-  return value;
-}
-
-/**
- * Converts the value to celsius if the temperature units are in Fahrenheit
  */
 export function toCelsius(value: number, unit: number): number {
   if (unit === 0) {
@@ -52,7 +39,7 @@ export enum ResideoModes {
   Off = 'Off',
   Heat = 'Heat',
   Cool = 'Cool',
-  Auto = 'Auto'
+  Auto = 'Auto',
 };
 
 /*

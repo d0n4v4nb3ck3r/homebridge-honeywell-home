@@ -96,7 +96,7 @@ export class Valve extends deviceBase {
         tap(() => {
           this.valveUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000))
+        debounceTime(this.devicePushRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();

@@ -59,10 +59,10 @@ export class RoomSensors extends deviceBase {
     accessory: PlatformAccessory,
     location: location,
     device: resideoDevice & devicesConfig,
-    public sensorAccessory: sensorAccessory,
-    public readonly group: T9groups,
+    sensorAccessory: sensorAccessory,
+    readonly group: T9groups,
   ) {
-    super(platform, accessory, location, device);
+    super(platform, accessory, location, device, sensorAccessory, group);
 
     this.accessoryId = sensorAccessory.accessoryId;
     this.roomId = sensorAccessory.roomId;

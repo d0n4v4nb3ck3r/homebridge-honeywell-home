@@ -402,10 +402,9 @@
                   }
                 },
                 "pushRate": {
-                  "title": "Device Refresh Rate",
+                  "title": "Device Push Rate",
                   "type": "number",
-                  "minimum": 30,
-                  "placeholder": 360,
+                  "placeholder": 1,
                   "description": "Indicates the number of seconds between pushes to the of Resideo API.",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && (model.options.devices[arrayIndices].deviceClass === 'Thermostat' || model.options.devices[arrayIndices].deviceClass === 'LeakDetector') && model.options.devices[arrayIndices].deviceID);"

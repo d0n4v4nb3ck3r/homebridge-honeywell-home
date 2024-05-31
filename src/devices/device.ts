@@ -4,7 +4,7 @@
  */
 import type { ResideoPlatform } from '../platform.js';
 import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
-import type { ResideoPlatformConfig, resideoDevice, location, devicesConfig } from '../settings.js';
+import type { ResideoPlatformConfig, resideoDevice, sensorAccessory, T9groups, location, devicesConfig } from '../settings.js';
 
 export abstract class deviceBase {
   public readonly api: API;
@@ -14,8 +14,8 @@ export abstract class deviceBase {
 
   // Config
   protected deviceLogging!: string;
-  protected deviceUpdateRate!: number;
   protected deviceRefreshRate!: number;
+  protected devicePushRate!: number;
   protected deviceMaxRetries!: number;
   protected deviceDelayBetweenRetries!: number;
 
@@ -24,6 +24,8 @@ export abstract class deviceBase {
     protected accessory: PlatformAccessory,
     protected location: location,
     protected device: resideoDevice & devicesConfig,
+    public sensorAccessory?: sensorAccessory,
+    public readonly group?: T9groups,
   ) {
     this.api = this.platform.api;
     this.log = this.platform.log;
@@ -32,17 +34,17 @@ export abstract class deviceBase {
 
 
     this.getDeviceLogSettings(device);
-    this.getDeviceRefreshRateSettings(device);
+    this.getDeviceRateSettings(device);
     this.getDeviceRetry(device);
     this.getDeviceConfigSettings(device);
-    this.getDeviceContext(accessory, device);
+    this.getDeviceContext(accessory, device, sensorAccessory);
 
     // Set accessory information
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
       .setCharacteristic(this.hap.Characteristic.Manufacturer, 'Resideo')
-      .setCharacteristic(this.hap.Characteristic.Name, accessory.displayName)
-      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.displayName)
+      .setCharacteristic(this.hap.Characteristic.Name, accessory.context.name)
+      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.name)
       .setCharacteristic(this.hap.Characteristic.Model, accessory.context.model)
       .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.deviceID);
   }
@@ -63,23 +65,37 @@ export abstract class deviceBase {
     }
   }
 
-  async getDeviceRefreshRateSettings(device: resideoDevice & devicesConfig): Promise<void> {
+  async getDeviceRateSettings(device: resideoDevice & devicesConfig): Promise<void> {
     // refreshRate
-    if (device.refreshRate) {
-      this.deviceRefreshRate = this.accessory.context.refreshRate = device.refreshRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config refreshRate: ${this.deviceRefreshRate}`);
-    } else if (this.config.options!.refreshRate) {
-      this.deviceRefreshRate = this.accessory.context.refreshRate = this.config.options!.refreshRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
-    }
-    // updateRate
-    if (device.updateRate) {
-      this.deviceUpdateRate = device.updateRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config updateRate: ${this.deviceUpdateRate}`);
+    if (device.thermostat?.roomsensor?.refreshRate) {
+      this.deviceRefreshRate = device.thermostat.roomsensor.refreshRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Sensor Config Refresh Rate: ${this.deviceRefreshRate}`);
+    } else if (device.thermostat?.roompriority?.refreshRate) {
+      this.deviceRefreshRate = device.thermostat.roompriority.refreshRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Priority Config Refresh Rate: ${this.deviceRefreshRate}`);
+    } else if (device.refreshRate) {
+      this.deviceRefreshRate = this.accessory.context.deviceRefreshRate = device.refreshRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config Refresh Rate: ${this.deviceRefreshRate}`);
     } else {
-      this.deviceUpdateRate = this.config.options!.pushRate!;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform pushRate: ${this.deviceUpdateRate}`);
+      this.deviceRefreshRate = this.config.options?.refreshRate ?? 120;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Config Refresh Rate: ${this.deviceRefreshRate}`);
     }
+    this.accessory.context.deviceRefreshRate = this.deviceRefreshRate;
+    // pushRate
+    if (device.thermostat?.roomsensor?.pushRate) {
+      this.devicePushRate = device.thermostat.roomsensor.pushRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Sensor Config Push Rate: ${this.devicePushRate}`);
+    } else if (device.thermostat?.roompriority?.pushRate) {
+      this.devicePushRate = device.thermostat.roompriority.pushRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Priority Config Push Rate: ${this.devicePushRate}`);
+    } else if (device.pushRate) {
+      this.devicePushRate = device.pushRate;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config Push Rate: ${this.devicePushRate}`);
+    } else {
+      this.devicePushRate = this.config.options?.pushRate ?? 0.1;
+      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Push Rate: ${this.devicePushRate}`);
+    }
+    this.accessory.context.devicePushRate = this.devicePushRate;
   }
 
   async getDeviceRetry(device: resideoDevice & devicesConfig): Promise<void> {
@@ -112,8 +128,8 @@ export abstract class deviceBase {
     if (device.refreshRate !== 0) {
       deviceConfig['refreshRate'] = device.refreshRate;
     }
-    if (device.updateRate !== 0) {
-      deviceConfig['updateRate'] = device.updateRate;
+    if (device.pushRate !== 0) {
+      deviceConfig['pushRate'] = device.pushRate;
     }
     if (device.retry === true) {
       deviceConfig['retry'] = device.retry;
@@ -142,58 +158,92 @@ export abstract class deviceBase {
     }
   }
 
-  async getDeviceContext(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
-    accessory.context.name = device.userDefinedDeviceName ? device.userDefinedDeviceName : device.name;
-    accessory.context.model = device.deviceClass ? device.deviceClass : device.deviceModel;
-    accessory.context.deviceId = device.deviceID;
-    accessory.context.deviceType = device.deviceType;
+  async getDeviceContext(accessory: PlatformAccessory, device: resideoDevice & devicesConfig, sensorAccessory?: sensorAccessory): Promise<void> {
+    if (sensorAccessory?.accessoryAttribute) {
+      accessory.context.name = sensorAccessory.accessoryAttribute.name;
+      accessory.context.model = sensorAccessory.accessoryAttribute.model;
+      accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber;
+      accessory.context.deviceType = sensorAccessory.accessoryAttribute.type;
+    } else if (device.deviceClass) {
+      accessory.context.name = device.userDefinedDeviceName ?? device.name;
+      accessory.context.model = device.deviceClass ?? device.deviceModel;
+      accessory.context.deviceID = device.deviceID;
+      accessory.context.deviceType = device.deviceType;
+    }
 
-    if (device.firmware) {
-      accessory.context.version = device.firmware;
-    } else if (device.firmware === undefined && device.firmwareVersion === undefined && device.thermostatVersion === undefined) {
-      accessory.context.version = this.platform.version;
+    // Firmware Version
+    let deviceFirmwareVersion: string;
+    if (sensorAccessory?.accessoryAttribute.softwareRevision) {
+      deviceFirmwareVersion = sensorAccessory.accessoryAttribute.softwareRevision;
+    } else if (device.firmware) {
+      deviceFirmwareVersion = device.firmware;
+      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 1 FirmwareRevision: ${device.firmware}`);
+    } else if (device.firmwareVersion) {
+      deviceFirmwareVersion = device.firmwareVersion;
+      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 2 FirmwareRevision: ${device.firmwareVersion}`);
+    } else if (device.thermostatVersion) {
+      deviceFirmwareVersion = device.thermostatVersion;
+      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 3 FirmwareRevision: ${device.thermostatVersion}`);
+    } else if (accessory.context.deviceVersion) {
+      deviceFirmwareVersion = accessory.context.deviceVersion;
+      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 4 FirmwareRevision: ${accessory.context.deviceVersion}`);
     } else {
-      accessory.context.version = device.firmwareVersion ? device.firmwareVersion : device.thermostatVersion;
+      deviceFirmwareVersion = this.platform.version ?? '0.0.0';
+      if (this.platform.version) {
+        this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 5 FirmwareRevision: ${this.platform.version}`);
+      } else {
+        this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 6 FirmwareRevision: ${deviceFirmwareVersion}`);
+      }
     }
-    this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Firmware Version: ${accessory.context.version}`);
-    if (accessory.context.version) {
-      this.accessory
-        .getService(this.hap.Service.AccessoryInformation)!
-        .setCharacteristic(this.hap.Characteristic.HardwareRevision, accessory.context.version)
-        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, accessory.context.version)
-        .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-        .updateValue(this.accessory.context.version);
+    const version = deviceFirmwareVersion.toString();
+    this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`);
+    let deviceVersion: string;
+    if (version?.includes('.') === false) {
+      const replace = version?.replace(/^V|-.*$/g, '');
+      const match = replace?.match(/.{1,1}/g);
+      const validVersion = match?.join('.');
+      deviceVersion = validVersion ?? '0.0.0';
+    } else {
+      deviceVersion = version?.replace(/^V|-.*$/g, '') ?? '0.0.0';
     }
-    this.debugSuccessLog(`${this.device.deviceClass}: ${this.accessory.displayName} Context: ${JSON.stringify(accessory.context)}`);
+    accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, deviceVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, deviceVersion)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, deviceVersion)
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(deviceVersion);
+    accessory.context.deviceVersion = deviceVersion;
+    this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} deviceVersion: ${accessory.context.deviceVersion}`);
   }
 
   async statusCode(statusCode: number, action: string): Promise<void> {
     switch (statusCode) {
       case 200:
-        this.log.debug(`${this.device.deviceClass}: ${this.accessory.displayName} Standard Response, statusCode: ${statusCode}, Action: ${action}`);
+        this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Standard Response, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 400:
-        this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} Bad Request, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Bad Request, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 401:
-        this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} Unauthorized, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Unauthorized, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 403:
         this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Forbidden,	The request has been authenticated but does not `
           + `have appropriate permissions, or a requested resource is not found, statusCode: ${statusCode}`);
         break;
       case 404:
-        this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} Not Found, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Not Found, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 429:
-        this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} Too Many Requests, statusCode: ${statusCode}, Action: ${action}`);
+        this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Too Many Requests, statusCode: ${statusCode}, Action: ${action}`);
         break;
       case 500:
-        this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} Internal Server Error (Meater Server), statusCode: ${statusCode}, `
+        this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} Internal Server Error (Meater Server), statusCode: ${statusCode}, `
           + `Action: ${action}`);
         break;
       default:
-        this.log.info(`${this.device.deviceClass}: ${this.accessory.displayName} Unknown statusCode: ${statusCode}, `
+        this.infoLog(`${this.device.deviceClass}: ${this.accessory.displayName} Unknown statusCode: ${statusCode}, `
           + `Action: ${action}, Report Bugs Here: https://bit.ly/homebridge-resideo-bug-report`);
     }
   }
@@ -201,39 +251,39 @@ export abstract class deviceBase {
 
   async resideoAPIError(e: any, action: string): Promise<void> {
     if (e.message.includes('400')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Bad Request`);
-      this.log.debug('The client has issued an invalid request. This is commonly used to specify validation errors in a request payload.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Bad Request`);
+      this.debugLog('The client has issued an invalid request. This is commonly used to specify validation errors in a request payload.');
     } else if (e.message.includes('401')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unauthorized Request`);
-      this.log.debug('Authorization for the API is required, but the request has not been authenticated.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unauthorized Request`);
+      this.debugLog('Authorization for the API is required, but the request has not been authenticated.');
     } else if (e.message.includes('403')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Forbidden Request`);
-      this.log.debug('The request has been authenticated but does not have appropriate permissions, or a requested resource is not found.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Forbidden Request`);
+      this.debugLog('The request has been authenticated but does not have appropriate permissions, or a requested resource is not found.');
     } else if (e.message.includes('404')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Requst Not Found`);
-      this.log.debug('Specifies the requested path does not exist.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Requst Not Found`);
+      this.debugLog('Specifies the requested path does not exist.');
     } else if (e.message.includes('406')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Request Not Acceptable`);
-      this.log.debug('The client has requested a MIME type via the Accept header for a value not supported by the server.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Request Not Acceptable`);
+      this.debugLog('The client has requested a MIME type via the Accept header for a value not supported by the server.');
     } else if (e.message.includes('415')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unsupported Requst Header`);
-      this.log.debug('The client has defined a contentType header that is not supported by the server.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unsupported Requst Header`);
+      this.debugLog('The client has defined a contentType header that is not supported by the server.');
     } else if (e.message.includes('422')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unprocessable Entity`);
-      this.log.debug(
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Unprocessable Entity`);
+      this.debugLog(
         'The client has made a valid request, but the server cannot process it.' +
         ' This is often used for APIs for which certain limits have been exceeded.');
     } else if (e.message.includes('429')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Too Many Requests`);
-      this.log.debug('The client has exceeded the number of requests allowed for a given time window.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Too Many Requests`);
+      this.debugLog('The client has exceeded the number of requests allowed for a given time window.');
     } else if (e.message.includes('500')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Internal Server Error`);
-      this.log.debug('An unexpected error on the SmartThings servers has occurred. These errors should be rare.');
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action}, Internal Server Error`);
+      this.debugLog('An unexpected error on the SmartThings servers has occurred. These errors should be rare.');
     } else {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action},`);
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to ${action},`);
     }
     if (this.deviceLogging.includes('debug')) {
-      this.log.error(`${this.device.deviceClass}: ${this.accessory.displayName} failed to pushChanges, Error Message: ${JSON.stringify(e.message)}`);
+      this.errorLog(`${this.device.deviceClass}: ${this.accessory.displayName} failed to pushChanges, Error Message: ${JSON.stringify(e.message)}`);
     }
   }
 

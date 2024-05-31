@@ -97,7 +97,7 @@ export class Thermostats extends deviceBase {
       Service: accessory.getService(this.hap.Service.Thermostat) ?? this.accessory.addService(this.hap.Service.Thermostat) as Service,
       TargetTemperature: accessory.context.TargetTemperature ?? 20,
       CurrentTemperature: accessory.context.CurrentTemperature ?? 20,
-      TemperatureDisplayUnits: accessory.context.TemperatureDisplayUnits ?? this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS,
+      TemperatureDisplayUnits: accessory.context.TemperatureDisplayUnits,
       TargetHeatingCoolingState: accessory.context.TargetHeatingCoolingState ?? this.hap.Characteristic.TargetHeatingCoolingState.AUTO,
       CurrentHeatingCoolingState: accessory.context.CurrentHeatingCoolingState ?? this.hap.Characteristic.CurrentHeatingCoolingState.OFF,
       CoolingThresholdTemperature: accessory.context.CoolingThresholdTemperature ?? 20,
@@ -111,35 +111,50 @@ export class Thermostats extends deviceBase {
       .setCharacteristic(this.hap.Characteristic.CurrentHeatingCoolingState, this.Thermostat.CurrentHeatingCoolingState)
       .getCharacteristic(this.hap.Characteristic.TemperatureDisplayUnits)
       .onGet(() => {
+        this.Thermostat.TemperatureDisplayUnits = device.units === 'Celsius'
+          ? this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS : this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
+        accessory.context.TemperatureDisplayUnits = this.Thermostat.TemperatureDisplayUnits;
+        this.debugLog(`${this.device.deviceClass} ${accessory.displayName} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
         return this.Thermostat.TemperatureDisplayUnits;
       })
       .onSet(this.setTemperatureDisplayUnits.bind(this));;
 
     // Set Min and Max
-    if (device.changeableValues!.heatCoolMode === 'Heat') {
-      this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues!.heatCoolMode}" mode`);
-      this.Thermostat.Service
-        .getCharacteristic(this.hap.Characteristic.TargetTemperature)
-        .setProps({
-          minValue: toCelsius(device.minHeatSetpoint!, Number(this.Thermostat.TemperatureDisplayUnits)),
-          maxValue: toCelsius(device.maxHeatSetpoint!, Number(this.Thermostat.TemperatureDisplayUnits)),
-          minStep: 0.1,
-        })
-        .onGet(() => {
-          return this.Thermostat.TargetTemperature;
-        });
-    } else {
-      this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues!.heatCoolMode}" mode`);
-      this.Thermostat.Service
-        .getCharacteristic(this.hap.Characteristic.TargetTemperature)
-        .setProps({
-          minValue: toCelsius(device.minCoolSetpoint!, Number(this.Thermostat.TemperatureDisplayUnits)),
-          maxValue: toCelsius(device.maxCoolSetpoint!, Number(this.Thermostat.TemperatureDisplayUnits)),
-          minStep: 0.1,
-        })
-        .onGet(() => {
-          return this.Thermostat.TargetTemperature;
-        });
+    if (device.minHeatSetpoint && device.maxHeatSetpoint) {
+      this.debugLog(`${this.device.deviceClass} ${accessory.displayName} minHeatSetpoint: ${device.minHeatSetpoint},`
+        + ` maxHeatSetpoint: ${device.maxHeatSetpoint}, TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
+      const minValue = toCelsius(device.minHeatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+      const maxValue = toCelsius(device.maxHeatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+      this.debugLog(`${this.device.deviceClass} ${accessory.displayName} minValue: ${minValue}, maxValue: ${maxValue}`);
+      if (device.changeableValues!.heatCoolMode === 'Heat') {
+        this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
+        this.Thermostat.Service
+          .getCharacteristic(this.hap.Characteristic.TargetTemperature)
+          .setProps({
+            minValue: minValue,
+            maxValue: maxValue,
+            minStep: 0.1,
+          })
+          .onGet(() => {
+            return this.Thermostat.TargetTemperature;
+          });
+        this.debugWarnLog(`Thermostat: ${accessory.displayName} (HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
+        + ` ${device.maxHeatSetpoint} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
+      } else {
+        this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
+        this.Thermostat.Service
+          .getCharacteristic(this.hap.Characteristic.TargetTemperature)
+          .setProps({
+            minValue: minValue,
+            maxValue: maxValue,
+            minStep: 0.1,
+          })
+          .onGet(() => {
+            return this.Thermostat.TargetTemperature;
+          });
+        this.debugWarnLog(`Thermostat: ${accessory.displayName} (NOT HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
+        + ` ${device.maxHeatSetpoint} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
+      }
     }
 
     // The value property of TargetHeaterCoolerState must be one of the following:
@@ -317,7 +332,7 @@ export class Thermostats extends deviceBase {
           tap(() => {
             this.roomUpdateInProgress = true;
           }),
-          debounceTime(this.deviceUpdateRate * 500),
+          debounceTime(this.devicePushRate * 500),
         )
         .subscribe(async () => {
           try {
@@ -352,7 +367,7 @@ export class Thermostats extends deviceBase {
         tap(() => {
           this.thermostatUpdateInProgress = true;
         }),
-        debounceTime(this.deviceUpdateRate * 1000))
+        debounceTime(this.devicePushRate * 1000))
       .subscribe(async () => {
         try {
           await this.pushChanges();
@@ -386,7 +401,7 @@ export class Thermostats extends deviceBase {
           tap(() => {
             this.fanUpdateInProgress = true;
           }),
-          debounceTime(this.deviceUpdateRate * 1000),
+          debounceTime(this.devicePushRate * 1000),
         )
         .subscribe(async () => {
           try {
@@ -434,7 +449,7 @@ export class Thermostats extends deviceBase {
         ` TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS}`);
     }
 
-    this.Thermostat.CurrentTemperature = toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits));
+    this.Thermostat.CurrentTemperature = await toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits));
     this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus`
       + ` CurrentTemperature: ${toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))}`);
 
@@ -447,14 +462,15 @@ export class Thermostats extends deviceBase {
     }
 
     if (device.changeableValues!.heatSetpoint > 0) {
-      this.Thermostat.HeatingThresholdTemperature = toCelsius(this.device.changeableValues!.heatSetpoint,
+      this.Thermostat.HeatingThresholdTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint,
         Number(this.Thermostat.TemperatureDisplayUnits));
       this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus`
         + ` HeatingThresholdTemperature: ${toCelsius(device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`);
     }
 
     if (device.changeableValues!.coolSetpoint > 0) {
-      this.Thermostat.CoolingThresholdTemperature = toCelsius(device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+      this.Thermostat.CoolingThresholdTemperature = await toCelsius(device.changeableValues!.coolSetpoint,
+        Number(this.Thermostat.TemperatureDisplayUnits));
       this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus`
         + ` CoolingThresholdTemperature: ${toCelsius(device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`);
     }
@@ -487,7 +503,8 @@ export class Thermostats extends deviceBase {
     // Set the TargetTemperature value based on the current mode
     if (this.Thermostat.TargetHeatingCoolingState === this.hap.Characteristic.TargetHeatingCoolingState.HEAT) {
       if (device.changeableValues!.heatSetpoint > 0) {
-        this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+        this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint,
+          Number(this.Thermostat.TemperatureDisplayUnits));
         this.debugLog(
           `${device.deviceClass} ${this.accessory.displayName}` +
           ` parseStatus TargetTemperature (HEAT): ${toCelsius(this.device.changeableValues!.heatSetpoint,
@@ -495,13 +512,16 @@ export class Thermostats extends deviceBase {
         );
       }
     } else {
-      if (device.changeableValues!.coolSetpoint > 0) {
-        this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
-        this.debugLog(
-          `${this.device.deviceClass} ${this.accessory.displayName}` +
-          ` parseStatus TargetTemperature (OFF/COOL): ${toCelsius(this.device.changeableValues!.coolSetpoint,
+      if (device.changeableValues) {
+        if (device.changeableValues.coolSetpoint > 0) {
+          this.Thermostat.TargetTemperature = await toCelsius(device.changeableValues.coolSetpoint,
+            Number(this.Thermostat.TemperatureDisplayUnits));
+          this.debugLog(
+            `${this.device.deviceClass} ${this.accessory.displayName}` +
+          ` parseStatus TargetTemperature (OFF/COOL): ${toCelsius(device.changeableValues.coolSetpoint,
             Number(this.Thermostat.TemperatureDisplayUnits))})`,
-        );
+          );
+        }
       }
     }
 
@@ -727,7 +747,7 @@ export class Thermostats extends deviceBase {
       switch (this.device.deviceModel) {
         case 'Unknown':
           this.errorLog(JSON.stringify(this.device));
-          payload.thermostatSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits));
+          payload.thermostatSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits));
           switch (this.device.units) {
             case 'Fahrenheit':
               payload.unit = 'Fahrenheit';
@@ -746,9 +766,9 @@ export class Thermostats extends deviceBase {
           // Set the heat and cool set point value based on the selected mode
           switch (this.Thermostat.TargetHeatingCoolingState) {
             case this.hap.Characteristic.TargetHeatingCoolingState.HEAT:
-              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature),
+              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
-              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
+              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (HEAT):`
                 + ` ${this.Thermostat.TargetHeatingCoolingState}, TargetTemperature: ${toFahrenheit(Number(this.Thermostat.TargetTemperature),
@@ -757,9 +777,9 @@ export class Thermostats extends deviceBase {
                   Number(this.Thermostat.TemperatureDisplayUnits))} coolSetpoint`);
               break;
             case this.hap.Characteristic.TargetHeatingCoolingState.COOL:
-              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature),
+              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
-              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
+              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (COOL): `
                 + `${this.Thermostat.TargetHeatingCoolingState}, TargetTemperature: ${toFahrenheit(Number(this.Thermostat.TargetTemperature),
@@ -768,9 +788,9 @@ export class Thermostats extends deviceBase {
                   Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`);
               break;
             case this.hap.Characteristic.TargetHeatingCoolingState.AUTO:
-              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
+              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
-              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
+              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (AUTO): `
                 + `${this.Thermostat.TargetHeatingCoolingState}, CoolingThresholdTemperature: `
@@ -780,9 +800,9 @@ export class Thermostats extends deviceBase {
                   Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`);
               break;
             default:
-              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
+              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
-              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
+              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
                 Number(this.Thermostat.TemperatureDisplayUnits));
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (OFF): `
                 + `${this.Thermostat.TargetHeatingCoolingState}, CoolingThresholdTemperature: `
@@ -993,7 +1013,7 @@ export class Thermostats extends deviceBase {
     if (!this.device.thermostat?.hide_humidity) {
       if (this.device.indoorHumidity) {
         if (this.HumiditySensor?.CurrentRelativeHumidity === undefined) {
-          this.log.debug(`${this.device.deviceClass} ${this.accessory.displayName}`
+          this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName}`
             + ` CurrentRelativeHumidity: ${this.HumiditySensor?.CurrentRelativeHumidity}`);
         } else {
           this.HumiditySensor.Service.updateCharacteristic(this.hap.Characteristic.CurrentRelativeHumidity,
@@ -1058,9 +1078,11 @@ export class Thermostats extends deviceBase {
 
     // Set the TargetTemperature value based on the selected mode
     if (this.Thermostat.TargetHeatingCoolingState === this.hap.Characteristic.TargetHeatingCoolingState.HEAT) {
-      this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+      this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint,
+        Number(this.Thermostat.TemperatureDisplayUnits));
     } else {
-      this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
+      this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.coolSetpoint,
+        Number(this.Thermostat.TemperatureDisplayUnits));
     }
     this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TargetTemperature, this.Thermostat.TargetTemperature);
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat' && this.device.deviceModel === 'T9-T10') {
@@ -1092,6 +1114,9 @@ export class Thermostats extends deviceBase {
   async setTemperatureDisplayUnits(value: CharacteristicValue): Promise<void> {
     this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} Set TemperatureDisplayUnits: ${value}`);
     this.warnLog('Changing the Hardware Display Units from HomeKit is not supported.');
+
+    this.Thermostat.TemperatureDisplayUnits = this.device.units === 'Celsius'
+      ? this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS : this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
 
     // change the temp units back to the one the Resideo API said the thermostat was set to
     setTimeout(() => {
