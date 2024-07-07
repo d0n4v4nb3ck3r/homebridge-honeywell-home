@@ -1120,56 +1120,56 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
    * If device level logging is turned on, log to log.warn
    * Otherwise send debug logs to log.debug
    */
-  infoLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async infoLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.info(String(...log));
     }
   }
 
-  successLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async successLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.success(String(...log));
     }
   }
 
-  debugSuccessLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugSuccessLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.success('[DEBUG]', String(...log));
       }
     }
   }
 
-  warnLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async warnLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.warn(String(...log));
     }
   }
 
-  debugWarnLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugWarnLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.warn('[DEBUG]', String(...log));
       }
     }
   }
 
-  errorLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async errorLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.error(String(...log));
     }
   }
 
-  debugErrorLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugErrorLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.error('[DEBUG]', String(...log));
       }
     }
   }
 
-  debugLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging === 'debugMode') {
         this.log.debug(String(...log));
       } else if (this.platformLogging === 'debug') {
@@ -1178,7 +1178,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  enablingPlatformLogging(): boolean {
+  async enablingPlatformLogging(): Promise<boolean> {
     return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
   }
 }
