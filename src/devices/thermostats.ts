@@ -127,7 +127,7 @@ export class Thermostats extends deviceBase {
       const maxValue = toCelsius(device.maxHeatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits));
       this.debugLog(`${this.device.deviceClass} ${accessory.displayName} minValue: ${minValue}, maxValue: ${maxValue}`);
       if (device.changeableValues!.heatCoolMode === 'Heat') {
-        this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
+        this.debugLog(`${device.deviceClass} ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
         this.Thermostat.Service
           .getCharacteristic(this.hap.Characteristic.TargetTemperature)
           .setProps({
@@ -138,10 +138,10 @@ export class Thermostats extends deviceBase {
           .onGet(() => {
             return this.Thermostat.TargetTemperature;
           });
-        this.debugWarnLog(`Thermostat: ${accessory.displayName} (HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
+        this.debugWarnLog(`${device.deviceClass} ${accessory.displayName} (HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
         + ` ${device.maxHeatSetpoint} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
       } else {
-        this.debugLog(`Thermostat: ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
+        this.debugLog(`${device.deviceClass} ${accessory.displayName} is in "${device.changeableValues?.heatCoolMode}" mode`);
         this.Thermostat.Service
           .getCharacteristic(this.hap.Characteristic.TargetTemperature)
           .setProps({
@@ -152,7 +152,7 @@ export class Thermostats extends deviceBase {
           .onGet(() => {
             return this.Thermostat.TargetTemperature;
           });
-        this.debugWarnLog(`Thermostat: ${accessory.displayName} (NOT HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
+        this.debugWarnLog(`${device.deviceClass} ${accessory.displayName} (NOT HEAT) Min Heat Setpoint: ${device.minHeatSetpoint}. Max Heat Setpoint:`
         + ` ${device.maxHeatSetpoint} TemperatureDisplayUnits: ${this.Thermostat.TemperatureDisplayUnits}`);
       }
     }
@@ -218,7 +218,7 @@ export class Thermostats extends deviceBase {
         this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Fan Service Not Found`);
       }
     } else if (device.settings?.fan) {
-      this.debugLog(`Thermostat: ${accessory.displayName} Available Fan Settings ${JSON.stringify(device.settings.fan)}`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Available Fan Settings ${JSON.stringify(device.settings.fan)}`);
       accessory.context.Fan = accessory.context.Fan ?? {};
       this.Fan = {
         Name: accessory.context.Fan.Name ?? `${accessory.displayName} Fan`,
@@ -244,7 +244,7 @@ export class Thermostats extends deviceBase {
         })
         .onSet(this.setTargetFanState.bind(this));
     } else {
-      this.debugLog(`Thermostat: ${accessory.displayName} Fanv2 Service Not Added`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Fanv2 Service Not Added`);
     }
 
     // Initialize Humidity Sensor Service
@@ -257,7 +257,7 @@ export class Thermostats extends deviceBase {
         this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Humidity Sensor Service Not Found`);
       }
     } else if (device.indoorHumidity) {
-      this.debugLog(`Thermostat: ${accessory.displayName} Add Humidity Sensor Service`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Add Humidity Sensor Service`);
       accessory.context.HumiditySensor = accessory.context.HumiditySensor ?? {};
       this.HumiditySensor = {
         Name: accessory.context.HumiditySensor.Name ?? `${accessory.displayName} Humidity Sensor`,
@@ -280,7 +280,7 @@ export class Thermostats extends deviceBase {
         });
 
     } else {
-      this.debugLog(`Thermostat: ${accessory.displayName} Humidity Sensor Service Not Added`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} Humidity Sensor Service Not Added`);
     }
 
     // Initialize StatefulProgrammableSwitch property
@@ -811,7 +811,7 @@ export class Thermostats extends deviceBase {
                 + `${toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature),
                   Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`);
           }
-          this.successLog(`Room Sensor ${this.device.deviceClass} ${this.accessory.displayName}`
+          this.successLog(`${this.device.deviceClass} ${this.accessory.displayName}`
             + ` set request (${JSON.stringify(payload)}) to Resideo API.`);
       }
 
@@ -1067,7 +1067,7 @@ export class Thermostats extends deviceBase {
     if (this.thermostatSetpointStatus === undefined) {
       accessory.context.thermostatSetpointStatus = device.thermostat?.thermostatSetpointStatus;
       this.thermostatSetpointStatus = accessory.context.thermostatSetpointStatus;
-      this.debugLog(`Thermostat: ${accessory.displayName} thermostatSetpointStatus: ${this.thermostatSetpointStatus}`);
+      this.debugLog(`${device.deviceClass} ${accessory.displayName} thermostatSetpointStatus: ${this.thermostatSetpointStatus}`);
     }
   }
 

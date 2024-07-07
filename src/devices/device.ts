@@ -33,8 +33,8 @@ export abstract class deviceBase {
     this.hap = this.api.hap;
 
 
-    this.getDeviceLogSettings(device);
-    this.getDeviceRateSettings(device);
+    this.getDeviceLogSettings(accessory, device);
+    this.getDeviceRateSettings(accessory, device);
     this.getDeviceRetry(device);
     this.getDeviceConfigSettings(device);
     this.getDeviceContext(accessory, device, sensorAccessory);
@@ -49,53 +49,26 @@ export abstract class deviceBase {
       .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.deviceID);
   }
 
-  async getDeviceLogSettings(device: resideoDevice & devicesConfig): Promise<void> {
-    if (this.platform.debugMode) {
-      this.deviceLogging = this.accessory.context.logging = 'debugMode';
-      this.debugWarnLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Debug Mode Logging: ${this.deviceLogging}`);
-    } else if (device.logging) {
-      this.deviceLogging = this.accessory.context.logging = device.logging;
-      this.debugWarnLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config Logging: ${this.deviceLogging}`);
-    } else if (this.config.options?.logging) {
-      this.deviceLogging = this.accessory.context.logging = this.config.logging;
-      this.debugWarnLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Config Logging: ${this.deviceLogging}`);
-    } else {
-      this.deviceLogging = this.accessory.context.logging = 'standard';
-      this.debugWarnLog(`${this.device.deviceClass}: ${this.accessory.displayName} Logging Not Set, Using: ${this.deviceLogging}`);
-    }
+  async getDeviceLogSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
+    this.deviceLogging = this.platform.debugMode ? 'debugMode' : device.logging ?? this.config.logging ?? 'standard';
+    const logging = this.platform.debugMode ? 'Debug Mode' : device.logging ? 'Device Config' : this.config.logging ? 'Platform Config' : 'Default';
+    accessory.context.deviceLogging = this.deviceLogging;
+    await this.debugLog(`Using ${logging} Logging: ${this.deviceLogging}`);
   }
 
-  async getDeviceRateSettings(device: resideoDevice & devicesConfig): Promise<void> {
+  async getDeviceRateSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
     // refreshRate
-    if (device.thermostat?.roomsensor?.refreshRate) {
-      this.deviceRefreshRate = device.thermostat.roomsensor.refreshRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Sensor Config Refresh Rate: ${this.deviceRefreshRate}`);
-    } else if (device.thermostat?.roompriority?.refreshRate) {
-      this.deviceRefreshRate = device.thermostat.roompriority.refreshRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Priority Config Refresh Rate: ${this.deviceRefreshRate}`);
-    } else if (device.refreshRate) {
-      this.deviceRefreshRate = this.accessory.context.deviceRefreshRate = device.refreshRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config Refresh Rate: ${this.deviceRefreshRate}`);
-    } else {
-      this.deviceRefreshRate = this.config.options?.refreshRate ?? 120;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Config Refresh Rate: ${this.deviceRefreshRate}`);
-    }
-    this.accessory.context.deviceRefreshRate = this.deviceRefreshRate;
+    this.deviceRefreshRate = device.thermostat?.roomsensor?.refreshRate ?? device.thermostat?.roompriority?.refreshRate ?? device.refreshRate
+      ?? this.config.options?.refreshRate ?? 120;
+    const refreshRate = device.thermostat?.roomsensor?.refreshRate ? 'Room Sensor Config'
+      : device.thermostat?.roompriority?.refreshRate ? 'Room Priority Config' : device.refreshRate ? 'Device Config'
+        : this.config.options?.refreshRate ? 'Platform Config' : 'Default';
+    accessory.context.deviceRefreshRate = this.deviceRefreshRate;
     // pushRate
-    if (device.thermostat?.roomsensor?.pushRate) {
-      this.devicePushRate = device.thermostat.roomsensor.pushRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Sensor Config Push Rate: ${this.devicePushRate}`);
-    } else if (device.thermostat?.roompriority?.pushRate) {
-      this.devicePushRate = device.thermostat.roompriority.pushRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Room Priority Config Push Rate: ${this.devicePushRate}`);
-    } else if (device.pushRate) {
-      this.devicePushRate = device.pushRate;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Config Push Rate: ${this.devicePushRate}`);
-    } else {
-      this.devicePushRate = this.config.options?.pushRate ?? 0.1;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Platform Push Rate: ${this.devicePushRate}`);
-    }
-    this.accessory.context.devicePushRate = this.devicePushRate;
+    this.devicePushRate = device.pushRate ?? this.config.options?.pushRate ?? 0.1;
+    const pushRate = device.pushRate ? 'Device Config' : this.config.options?.pushRate ? 'Platform Config' : 'Default';
+    await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}, ${pushRate} pushRate: ${this.devicePushRate}`);
+    accessory.context.devicePushRate = this.devicePushRate;
   }
 
   async getDeviceRetry(device: resideoDevice & devicesConfig): Promise<void> {
@@ -172,29 +145,8 @@ export abstract class deviceBase {
     }
 
     // Firmware Version
-    let deviceFirmwareVersion: string;
-    if (sensorAccessory?.accessoryAttribute.softwareRevision) {
-      deviceFirmwareVersion = sensorAccessory.accessoryAttribute.softwareRevision;
-    } else if (device.firmware) {
-      deviceFirmwareVersion = device.firmware;
-      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 1 FirmwareRevision: ${device.firmware}`);
-    } else if (device.firmwareVersion) {
-      deviceFirmwareVersion = device.firmwareVersion;
-      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 2 FirmwareRevision: ${device.firmwareVersion}`);
-    } else if (device.thermostatVersion) {
-      deviceFirmwareVersion = device.thermostatVersion;
-      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 3 FirmwareRevision: ${device.thermostatVersion}`);
-    } else if (accessory.context.deviceVersion) {
-      deviceFirmwareVersion = accessory.context.deviceVersion;
-      this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 4 FirmwareRevision: ${accessory.context.deviceVersion}`);
-    } else {
-      deviceFirmwareVersion = this.platform.version ?? '0.0.0';
-      if (this.platform.version) {
-        this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 5 FirmwareRevision: ${this.platform.version}`);
-      } else {
-        this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} 6 FirmwareRevision: ${deviceFirmwareVersion}`);
-      }
-    }
+    const deviceFirmwareVersion = sensorAccessory?.accessoryAttribute.softwareRevision ?? device.firmware ?? device.firmwareVersion
+      ?? device.thermostatVersion ?? accessory.context.version ?? this.platform.version ?? '0.0.0';
     const version = deviceFirmwareVersion.toString();
     this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`);
     let deviceVersion: string;
@@ -290,65 +242,65 @@ export abstract class deviceBase {
   /**
    * Logging for Device
    */
-  infoLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
-      this.log.info(String(...log));
+  async infoLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
+      this.log.info(`${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
     }
   }
 
-  successLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
-      this.log.success(String(...log));
+  async successLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
+      this.log.success(`${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
     }
   }
 
-  debugSuccessLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
+  async debugSuccessLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
       if (this.deviceLogging?.includes('debug')) {
-        this.log.success('[DEBUG]', String(...log));
+        this.log.success(`[DEBUG] ${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
       }
     }
   }
 
-  warnLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
-      this.log.warn(String(...log));
+  async warnLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
+      this.log.warn(`${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
     }
   }
 
-  debugWarnLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
+  async debugWarnLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
       if (this.deviceLogging?.includes('debug')) {
-        this.log.warn('[DEBUG]', String(...log));
+        this.log.warn(`[DEBUG] ${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
       }
     }
   }
 
-  errorLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
-      this.log.error(String(...log));
+  async errorLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
+      this.log.error(`${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
     }
   }
 
-  debugErrorLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
+  async debugErrorLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
       if (this.deviceLogging?.includes('debug')) {
-        this.log.error('[DEBUG]', String(...log));
+        this.log.error(`[DEBUG] ${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
       }
     }
   }
 
-  debugLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
+  async debugLog(...log: any[]): Promise<void> {
+    if (await this.enablingDeviceLogging()) {
       if (this.deviceLogging === 'debug') {
-        this.log.info('[DEBUG]', String(...log));
+        this.log.info(`[DEBUG] ${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
       } else {
-        this.log.debug(String(...log));
+        this.log.debug(`${this.device.deviceType}: ${this.accessory.displayName}`, String(...log));
       }
     }
   }
 
-  enablingDeviceLogging(): boolean {
+  async enablingDeviceLogging(): Promise<boolean> {
     return this.deviceLogging.includes('debug') || this.deviceLogging === 'standard';
   }
 }
