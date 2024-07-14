@@ -301,6 +301,6 @@ export abstract class deviceBase {
   }
 
   async enablingDeviceLogging(): Promise<boolean> {
-    return this.deviceLogging.includes('debug') || this.deviceLogging === 'standard';
+    return this.deviceLogging.includes('debug') ?? this.deviceLogging === 'standard';
   }
 }
