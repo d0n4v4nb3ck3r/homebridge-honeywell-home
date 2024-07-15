@@ -72,22 +72,13 @@ export abstract class deviceBase {
   }
 
   async getDeviceRetry(device: resideoDevice & devicesConfig): Promise<void> {
-    if (device.maxRetries) {
-      this.deviceMaxRetries = device.maxRetries;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Using Device Max Retries: ${this.deviceMaxRetries}`);
-    } else {
-      this.deviceMaxRetries = 5; // Maximum number of retries
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Max Retries Not Set, Using: ${this.deviceMaxRetries}`);
-    }
-    if (device.delayBetweenRetries) {
-      this.deviceDelayBetweenRetries = device.delayBetweenRetries * 1000;
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName}`
-        + ` Using Device Delay Between Retries: ${this.deviceDelayBetweenRetries}`);
-    } else {
-      this.deviceDelayBetweenRetries = 3000; // Delay between retries in milliseconds
-      this.debugLog(`${this.device.deviceClass}: ${this.accessory.displayName} Delay Between Retries Not Set,`
-        + ` Using: ${this.deviceDelayBetweenRetries}`);
-    }
+    this.deviceMaxRetries = device.maxRetries ?? 5;
+    const maxRetries = device.maxRetries ? 'Device Config' : 'Default';
+    await this.debugLog(`Using ${maxRetries} maxRetries: ${this.deviceMaxRetries}`);
+    this.deviceDelayBetweenRetries = device.delayBetweenRetries ?? 3;
+    this.deviceDelayBetweenRetries = this.deviceDelayBetweenRetries * 1000;
+    const delayBetweenRetries = device.delayBetweenRetries ? 'Device Config' : 'Default';
+    await this.debugLog(`Using ${delayBetweenRetries} delayBetweenRetries: ${this.deviceDelayBetweenRetries}`);
   }
 
   async getDeviceConfigSettings(device: resideoDevice & devicesConfig): Promise<void> {
