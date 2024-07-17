@@ -82,11 +82,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       credentials: config.credentials,
       options: config.options,
     };
-    this.platformConfigOptions();
-    this.platformLogs();
+    this.getPlatformLogSettings();
+    this.getPlatformConfigSettings();
     this.getVersion();
     this.debugLog(`Finished initializing platform: ${config.name}`);
-
 
     // verify the config
     try {
@@ -1067,7 +1066,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  async platformConfigOptions() {
+  async getPlatformConfigSettings() {
     const platformConfig: ResideoPlatformConfig['options'] = {};
     if (this.config.options) {
       if (this.config.options.logging) {
@@ -1086,23 +1085,17 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  async platformLogs() {
-    this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
-    this.platformLogging = this.config.options?.logging ?? 'standard';
+  async getPlatformLogSettings() {
+    this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug');
     if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
       this.platformLogging = this.config.options.logging;
-      if (this.platformLogging.includes('debug')) {
-        this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`);
-      }
+      await this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`);
     } else if (this.debugMode) {
       this.platformLogging = 'debugMode';
-      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     } else {
       this.platformLogging = 'standard';
-      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-    }
-    if (this.debugMode) {
-      this.platformLogging = 'debugMode';
+      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     }
   }
 
@@ -1179,6 +1172,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   async enablingPlatformLogging(): Promise<boolean> {
-    return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
+    return this.platformLogging.includes('debug') ?? this.platformLogging === 'standard';
   }
 }
