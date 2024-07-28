@@ -28,7 +28,7 @@
     "lint": "eslint src/**/*.ts",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
-    "build": "rimraf ./dist && tsc && npm run plugin-ui",
+    "build": "npm run clean && tsc && npm run plugin-ui",
     "postpublish": "npm run clean",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
     "clean": "shx rm -rf ./dist"
