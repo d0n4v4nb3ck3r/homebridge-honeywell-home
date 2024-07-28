@@ -78,7 +78,6 @@
     "homebridge-config-ui-x": "4.56.4",
     "nodemon": "^3.1.4",
     "npm-check-updates": "^16.14.20",
-    "rimraf": "^6.0.1",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4",
