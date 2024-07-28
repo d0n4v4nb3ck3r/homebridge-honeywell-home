@@ -29,9 +29,12 @@
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "npm run clean && tsc && npm run plugin-ui",
+    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
     "postpublish": "npm run clean",
-    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
-    "clean": "shx rm -rf ./dist"
+    "clean": "shx rm -rf ./dist",
+    "test": "npm run lint",
+    "docs": "typedoc",
+    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
   },
   "funding": [
     {
@@ -80,6 +83,7 @@
     "npm-check-updates": "^16.14.20",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
+    "typedoc": "0.26.5",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.0-alpha.44"
   }
