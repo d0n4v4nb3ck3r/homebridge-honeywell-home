@@ -28,5 +28,8 @@
   "codeQL.githubDatabase.update": "never",
   "[html]": {
     "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
   }
 }

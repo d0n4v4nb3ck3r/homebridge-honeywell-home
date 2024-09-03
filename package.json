@@ -1,41 +1,14 @@
 {
-  "displayName": "Resideo",
   "name": "homebridge-resideo",
+  "displayName": "Resideo",
+  "type": "module",
   "version": "2.1.4",
   "description": "The Resideo plugin allows you to access your Resideo device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
     "url": "https://github.com/donavanbecker"
   },
-  "type": "module",
   "license": "ISC",
-  "icon": "https://raw.githubusercontent.com/donavanbecker/homebridge-resideo/beta-1.4.4/branding/icon.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/donavanbecker/homebridge-resideo.git"
-  },
-  "bugs": {
-    "url": "https://github.com/donavanbecker/homebridge-resideo/issues"
-  },
-  "engines": {
-    "homebridge": "^1.8.4 || ^2.0.0 || ^2.0.0-beta.8",
-    "node": "^18 || ^20 || ^22"
-  },
-  "main": "dist/index.js",
-  "scripts": {
-    "check": "npm install && npm outdated",
-    "update": "ncu -u && npm update && npm install",
-    "lint": "eslint src/**/*.ts",
-    "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
-    "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
-    "build": "npm run clean && tsc && npm run plugin-ui",
-    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
-    "postpublish": "npm run clean",
-    "clean": "shx rm -rf ./dist",
-    "test": "npm run lint",
-    "docs": "typedoc",
-    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
-  },
   "funding": [
     {
       "type": "Paypal",
@@ -46,6 +19,13 @@
       "url": "https://github.com/sponsors/donavanbecker"
     }
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/donavanbecker/homebridge-resideo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/donavanbecker/homebridge-resideo/issues"
+  },
   "keywords": [
     "homebridge-plugin",
     "honeywell",
@@ -64,29 +44,55 @@
     "humidity",
     "leak"
   ],
+  "main": "dist/index.js",
+  "icon": "https://raw.githubusercontent.com/donavanbecker/homebridge-resideo/beta-1.4.4/branding/icon.png",
+  "engines": {
+    "homebridge": "^1.8.4 || ^2.0.0 || ^2.0.0-beta.13 || ^2.0.0-alpha.32",
+    "node": "^18 || ^20 || ^22"
+  },
+  "scripts": {
+    "check": "npm install && npm outdated",
+    "update": "ncu -u && npm update && npm install",
+    "lint": "eslint src/**/*.ts",
+    "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
+    "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
+    "build": "npm run clean && tsc && npm run plugin-ui",
+    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
+    "postpublish": "npm run clean",
+    "clean": "shx rm -rf ./dist",
+    "test": "npm run lint",
+    "docs": "typedoc",
+    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
+  },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
-    "axios": "1.7.3",
+    "axios": "1.7.7",
     "rxjs": "^7.8.1",
-    "undici": "^6.19.5"
+    "undici": "^6.19.8"
   },
   "devDependencies": {
-    "@eslint/js": "^9.8.0",
-    "@stylistic/eslint-plugin": "^2.6.1",
-    "@types/eslint__js": "^8.42.3",
+    "@antfu/eslint-config": "^3.0.0",
+    "@types/aes-js": "^3.1.4",
+    "@types/debug": "^4.1.12",
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.12",
-    "@types/node": "^22.1.0",
-    "eslint": "^9.8.0",
-    "globals": "^15.9.0",
-    "jest": "^29.7.0",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^22.5.2",
+    "@types/semver": "^7.5.8",
+    "@types/source-map-support": "^0.5.10",
+    "@vitest/coverage-v8": "^2.0.5",
+    "eslint": "^9.9.1",
+    "eslint-plugin-format": "^0.1.2",
     "homebridge": "^1.8.4",
-    "homebridge-config-ui-x": "4.56.4",
+    "homebridge-config-ui-x": "4.57.1",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.4",
-    "npm-check-updates": "^17.0.3",
+    "npm-check-updates": "^17.1.1",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
-    "typedoc": "0.26.5",
+    "typedoc": "^0.26.6",
     "typescript": "^5.5.4",
-    "typescript-eslint": "^8.0.1"
+    "typescript-axios-wb": "^1.0.3",
+    "vitest": "^2.0.5"
   }
 }

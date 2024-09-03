@@ -8,11 +8,11 @@
  */
 export function toCelsius(value: number, unit: number): number {
   if (unit === 0) {
-    return value;
+    return value
   }
 
   // celsius should be to the nearest 0.5 degree
-  return Math.round((5 / 9) * (value - 32) * 2) / 2;
+  return Math.round((5 / 9) * (value - 32) * 2) / 2
 }
 
 /**
@@ -20,18 +20,18 @@ export function toCelsius(value: number, unit: number): number {
  */
 export function toFahrenheit(value: number, unit: number): number {
   if (unit === 0) {
-    return value;
+    return value
   }
 
-  return Math.round((value * 9) / 5 + 32);
+  return Math.round((value * 9) / 5 + 32)
 }
 
 // Map HomeKit Modes to Resideo Modes
 export enum HomeKitModes {
-  Off = 0,  //this.hap.Characteristic.TargetHeatingCoolingState.OFF
-  Heat = 1, //this.hap.Characteristic.TargetHeatingCoolingState.HEAT
-  Cool = 2, //this.hap.Characteristic.TargetHeatingCoolingState.COOL
-  Auto = 3, //this.hap.Characteristic.TargetHeatingCoolingState.AUTO
+  Off = 0, // this.hap.Characteristic.TargetHeatingCoolingState.OFF
+  Heat = 1, // this.hap.Characteristic.TargetHeatingCoolingState.HEAT
+  Cool = 2, // this.hap.Characteristic.TargetHeatingCoolingState.COOL
+  Auto = 3, // this.hap.Characteristic.TargetHeatingCoolingState.AUTO
 }
 
 // Don't change the order of these!
@@ -58,4 +58,4 @@ export type resideoHold = {
   NoHold: 'NoHold',
   TemporaryHold: 'TemporaryHold',
   PermanentHold: 'PermanentHold'
-};*/
+}; */

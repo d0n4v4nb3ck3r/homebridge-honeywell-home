@@ -9,9 +9,9 @@
 <a href="https://discord.gg/8fpZA4S"><img title="discord-resideo" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
 <a href="https://paypal.me/donavanbecker"><img title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
 
-<p>The Homebridge <a href="https://resideo.com">Resideo</a> 
+<p>The Homebridge <a href="https://resideo.com">Resideo</a>
 plugin allows you to access your Resideo Device(s) from HomeKit with
-  <a href="https://homebridge.io">Homebridge</a>. 
+  <a href="https://homebridge.io">Homebridge</a>.
 </p>
 
 </span>
