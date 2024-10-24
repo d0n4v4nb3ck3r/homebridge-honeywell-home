@@ -34,6 +34,8 @@ export const LocationURL = 'https://api.honeywell.com/v2/locations'
  */
 export const DeviceURL = 'https://api.honeywell.com/v2/devices'
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD'
+
 // Config
 export interface ResideoPlatformConfig extends PlatformConfig {
   credentials?: credentials

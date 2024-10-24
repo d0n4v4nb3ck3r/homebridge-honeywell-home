@@ -7,11 +7,13 @@ import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory, Unkno
 import type {
   accessoryAttribute,
   devicesConfig,
+  HttpMethod,
   location,
   locations,
   resideoDevice,
   ResideoPlatformConfig,
   sensorAccessory,
+
   T9groups,
 } from './settings.js'
 
@@ -209,16 +211,28 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  public async discoverlocations(): Promise<location[]> {
+  async discoverlocations(): Promise<location[]> {
     this.debugLog(`accessToken: ${this.config.credentials?.accessToken}, consumerKey: ${this.config.credentials?.consumerKey}`)
-    const { body, statusCode } = await request(LocationURL, {
+
+    const options: {
+      method: HttpMethod
+      headers: {
+        'Authorization': string
+        'Content-Type': string
+        'apikey': string | undefined
+      }
+    } = {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
         'Content-Type': 'application/json',
         'apikey': this.config.credentials?.consumerKey,
       },
-    })
+    }
+
+    this.debugLog(`Request options: ${JSON.stringify(options)}`)
+
+    const { body, statusCode } = await request(`${LocationURL}?apikey=${this.config.credentials?.consumerKey}`, options)
 
     this.debugLog(`Response status code: ${statusCode}`)
 
@@ -228,7 +242,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     const locations = await body.json() as location[]
     this.debugLog(`(discoverlocations) Location: ${JSON.stringify(locations)}`)
-    return locations // Ensure this returns an array
+    return locations
   }
 
   public async getCurrentSensorData(location: location, device: resideoDevice & devicesConfig, group: T9groups) {
