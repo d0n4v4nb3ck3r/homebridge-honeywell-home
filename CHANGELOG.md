@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## [2.1.6](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.6) (2024-10-23)
+## [2.1.6](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.6) (2024-10-24)
 
 ### What's Changes
 - Fix for UI linking issues and refresh issues.
