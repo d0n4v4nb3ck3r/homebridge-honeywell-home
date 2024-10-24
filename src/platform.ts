@@ -216,6 +216,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       headers: {
         'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
         'Content-Type': 'application/json',
+        'apikey': this.config.credentials?.consumerKey,
       },
     })
     const locations = await body.json() as location[]
@@ -230,6 +231,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         headers: {
           'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
           'Content-Type': 'application/json',
+          'apikey': this.config.credentials?.consumerKey,
         },
         query: { locationId: location.locationID },
       })

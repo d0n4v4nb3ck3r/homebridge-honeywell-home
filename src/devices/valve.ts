@@ -108,6 +108,7 @@ export class Valve extends deviceBase {
           method: 'GET',
           query: {
             locationId: this.location.locationID,
+            apikey: this.config.credentials?.consumerKey,
           },
           headers: {
             'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
@@ -147,6 +148,7 @@ export class Valve extends deviceBase {
           body: JSON.stringify(payload),
           query: {
             locationId: this.location.locationID,
+            apikey: this.config.credentials?.consumerKey,
           },
           headers: {
             'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
