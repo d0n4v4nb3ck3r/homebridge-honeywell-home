@@ -211,7 +211,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   public async discoverlocations(): Promise<location[]> {
     this.debugLog(`accessToken: ${this.config.credentials?.accessToken}, consumerKey: ${this.config.credentials?.consumerKey}`)
-    const { body } = await request(LocationURL, {
+    const { body, statusCode } = await request(LocationURL, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
@@ -219,6 +219,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         'apikey': this.config.credentials?.consumerKey,
       },
     })
+
+    this.debugLog(`Response status code: ${statusCode}`)
+
+    if (statusCode !== 200) {
+      throw new Error(`Failed to fetch locations: ${statusCode}`)
+    }
+
     const locations = await body.json() as location[]
     this.debugLog(`(discoverlocations) Location: ${JSON.stringify(locations)}`)
     return locations // Ensure this returns an array
