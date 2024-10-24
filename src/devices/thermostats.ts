@@ -560,55 +560,50 @@ export class Thermostats extends deviceBase {
   }
 
   private async getDeviceStatus() {
-    const device: any = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
-      params: {
-        locationId: this.location.locationID,
-      },
-    })).data
-    /*
-    const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+    const url = `${DeviceURL}/thermostats/${this.device.deviceID}`
+    const options = {
       method: 'GET',
       query: {
-        'locationId': this.location.locationID,
-        'apikey': this.config.credentials?.consumerKey,
+        locationId: this.location.locationID,
+        apikey: this.config.credentials?.consumerKey,
       },
       headers: {
         'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
         'Content-Type': 'application/json',
       },
-    });
-    const action = 'refreshStatus';
-    await this.statusCode(statusCode, action);
-    const device: any = await body.json(); */
+    }
+
+    const { data: device, statusCode } = await this.platform.makeRequest(url, options)
+    const action = 'refreshStatus'
+    await this.statusCode(statusCode, action)
+
     this.debugLog(`(refreshStatus) ${device.deviceClass} device: ${JSON.stringify(device)}`)
-    this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name}from Resideo API: ${JSON.stringify(this.device.changeableValues)}`)
+    this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name} from Resideo API: ${JSON.stringify(this.device.changeableValues)}`)
     return device
   }
 
   private async getRoomPriorityStatus() {
     let roomPriorityStatus: any
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat' && this.device.deviceModel === 'T9-T10') {
-      const roomPriority: any = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
-        params: {
-          locationId: this.location.locationID,
-        },
-      })).data
-      /*
-      const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/priority`
+      const options = {
         method: 'GET',
         query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
+          locationId: this.location.locationID,
+          apikey: this.config.credentials?.consumerKey,
         },
         headers: {
           'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
           'Content-Type': 'application/json',
         },
-      });
-      const action = 'refreshRoomPriority';
-      await this.statusCode(statusCode, action);
-      const roomPriority: any = await body.json(); */
+      }
+
+      const { data: roomPriority, statusCode } = await this.platform.makeRequest(url, options)
+      const action = 'refreshRoomPriority'
+      await this.statusCode(statusCode, action)
+
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshRoomPriority) roompriority: ${JSON.stringify(roomPriority)}`)
+      roomPriorityStatus = roomPriority
     }
     return roomPriorityStatus
   }
@@ -616,32 +611,27 @@ export class Thermostats extends deviceBase {
   private async getFanStatus() {
     let fanSettings: any
     if (this.device.settings?.fan && !this.device.thermostat?.hide_fan) {
-      const fanSettings: any = (
-        await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, {
-          params: {
-            locationId: this.location.locationID,
-          },
-        })
-      ).data
-      /*
-      const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, {
+      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/fan`
+      const options = {
         method: 'GET',
         query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
+          locationId: this.location.locationID,
+          apikey: this.config.credentials?.consumerKey,
         },
         headers: {
           'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
           'Content-Type': 'application/json',
         },
-      });
-      const action = 'refreshStatus/fan';
-      await this.statusCode(statusCode, action);
-      this.debugLog(`(refreshStatus:fan) statusCode: ${statusCode}`);
-      fanSettings = await body.json(); */
-      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshStatus:fan) fanMode: ${JSON.stringify(fanSettings)}`)
-      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanMode: ${JSON.stringify(fanSettings)}`)
-      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name} Fanfrom Resideo Fan API: ${JSON.stringify(fanSettings)}`)
+      }
+
+      const { data: fan, statusCode } = await this.platform.makeRequest(url, options)
+      const action = 'refreshFanStatus'
+      await this.statusCode(statusCode, action)
+
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshFanStatus) fanMode: ${JSON.stringify(fan)}`)
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanMode: ${JSON.stringify(fan)}`)
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name} Fan from Resideo Fan API: ${JSON.stringify(fan)}`)
+      fanSettings = fan
     }
     return fanSettings
   }
@@ -762,25 +752,24 @@ export class Thermostats extends deviceBase {
       }
 
       // Attempt to make the API request
-      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}`, payload, {
+      const url = `${DeviceURL}/thermostats/${this.device.deviceID}`
+      const options = {
+        method: 'POST',
+        data: payload,
         params: {
           locationId: this.location.locationID,
-        },
-      })
-      /* const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
+          apikey: this.config.credentials?.consumerKey,
         },
         headers: {
           'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
           'Content-Type': 'application/json',
         },
-      });
-      const action = 'pushChanges';
-      await this.statusCode(statusCode, action); */
+      }
+
+      const { statusCode } = await this.platform.makeRequest(url, options)
+      const action = 'pushChanges'
+      await this.statusCode(statusCode, action)
+
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
@@ -868,26 +857,24 @@ export class Thermostats extends deviceBase {
           )
         }
         // Make the API request
-        await this.platform.axios.put(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, payload, {
+        const url = `${DeviceURL}/thermostats/${this.device.deviceID}/priority`
+        const options = {
+          method: 'PUT',
+          data: payload,
           params: {
             locationId: this.location.locationID,
-          },
-        })
-        /*
-        const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-          query: {
-            'locationId': this.location.locationID,
-            'apikey': this.config.credentials?.consumerKey,
+            apikey: this.config.credentials?.consumerKey,
           },
           headers: {
             'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
             'Content-Type': 'application/json',
           },
-        });
-        const action = 'pushRoomChanges';
-        await this.statusCode(statusCode, action); */
+        }
+
+        const { statusCode } = await this.platform.makeRequest(url, options)
+        const action = 'pushRoomChanges'
+        await this.statusCode(statusCode, action)
+
         this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushRoomChanges: ${JSON.stringify(payload)}`)
       }
     }
@@ -1087,25 +1074,24 @@ export class Thermostats extends deviceBase {
 
       this.successLog(`Sending request for ${this.accessory.displayName} to Resideo API Fan Mode: ${payload.mode}`)
       // Make the API request
-      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, payload, {
+      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/fan`
+      const options = {
+        method: 'POST',
+        data: payload,
         params: {
           locationId: this.location.locationID,
-        },
-      })
-      /* const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-        query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
+          apikey: this.config.credentials?.consumerKey,
         },
         headers: {
           'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
           'Content-Type': 'application/json',
         },
-      });
-      const action = 'pushFanChanges';
-      await this.statusCode(statusCode, action); */
+      }
+
+      const { statusCode } = await this.platform.makeRequest(url, options)
+      const action = 'pushFanChanges'
+      await this.statusCode(statusCode, action)
+
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
     }
   }

@@ -44,25 +44,26 @@ export interface ResideoPlatformConfig extends PlatformConfig {
 
 export interface credentials {
   accessToken?: string
+  refreshToken?: string
   consumerKey?: string
   consumerSecret?: string
-  refreshToken?: string
 }
 
 export interface options {
+  logging?: string
   refreshRate?: number
   pushRate?: number
   devices?: devicesConfig[]
-  logging?: string
 }
 
 export interface devicesConfig extends resideoDevice {
+  deviceID: string | number // Updated to handle both string and number
   deviceClass: string
-  deviceID: string
+  userDefinedDeviceName: string
+  hide_device?: boolean
   thermostat?: thermostat
   valve?: valve
   leaksensor?: leaksensor
-  hide_device?: boolean
   external?: boolean
   logging?: string
   refreshRate?: number
@@ -127,8 +128,8 @@ export interface holdModes {
 
 export interface payload {
   mode?: string
-  heatSetpoint: number
-  coolSetpoint: number
+  heatSetpoint?: number
+  coolSetpoint?: number
   thermostatSetpointStatus?: string
   nextPeriodTime?: string
   autoChangeoverActive?: boolean
@@ -141,19 +142,31 @@ export type locations = location[]
 
 // Location
 export interface location {
-  locationID: number
+  locationID: string | number // Updated to handle both string and number
   name: string
   devices: resideoDevice[]
 }
 
 export interface resideoDevice {
+  deviceID: string | number // Updated to handle both string and number
+  deviceClass: string
+  deviceModel: string
+  userDefinedDeviceName: string
+  firmware?: string
+  thermostatVersion?: string
+  external?: boolean
   groups?: T9groups[]
+  thermostat?: {
+    roompriority?: {
+      deviceType?: string
+    }
+    roomsensor?: {
+      hide_roomsensor?: boolean
+    }
+  }
   inBuiltSensorState?: inBuiltSensorState
   settings?: Settings
-  deviceClass: string
   deviceType: string
-  deviceID: string
-  userDefinedDeviceName: string
   name?: string
   isAlive: boolean
   priorityType?: string
@@ -167,7 +180,6 @@ export interface resideoDevice {
   changeableValues?: ChangeableValues
   operationStatus?: OperationStatus
   indoorHumidity?: number
-  deviceModel: string
   displayedOutdoorHumidity?: number
   scheduleStatus?: string
   allowedTimeIncrements?: number
@@ -178,7 +190,6 @@ export interface resideoDevice {
   outdoorTemperature?: number
   deadband?: number
   hasDualSetpointStatus?: boolean
-  thermostatVersion?: string
   parentDeviceId?: number
   service: Service
   deviceSettings: Record<string, unknown> // DeviceSettings
