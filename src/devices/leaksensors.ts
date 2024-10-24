@@ -254,25 +254,15 @@ export class LeakSensor extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      const device: any = (await this.platform.axios.get(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
-        params: {
-          locationId: this.location.locationID,
+      const device: any = await this.platform.makeRequest(
+        `${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`,
+        {
+          method: 'GET',
+          params: {
+            locationId: this.location.locationID,
+          },
         },
-      })).data
-      /* const { body, statusCode } = await request(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
-        method: 'GET',
-        query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
-        },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const action = 'refreshStatus';
-      await this.statusCode(statusCode, action);
-      const device: any = await body.json(); */
+      )
       this.debugLog(`(refreshStatus) ${device.deviceClass} device: ${JSON.stringify(device)}`)
       await this.parseStatus(device)
       await this.updateHomeKitCharacteristics()

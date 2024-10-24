@@ -5,7 +5,7 @@
   "customUi": true,
   "customUiPath": "./dist/homebridge-ui",
   "headerDisplay": "<p align='center'><img width='250px' src='https://user-images.githubusercontent.com/3979615/71876008-d99d7400-3179-11ea-909b-9d2a3d1e670f.png'></p>\n\nThe **Homebridge Resideo** plugin allows you to control Resideo thermostats and also view your Leak and Room Sensors from HomeKit. \n\nTo get started link your Resideo account using the button below.",
-  "footerDisplay": "Your Resideo account has been linked. Please raise any issues on our [project page](https://github.com/donavanbecker/homebridge-resideo/issues).\n\nIf you would like to have other Resideo Devices besides Thermostat, Leak Sensors, or Room Sensors added to this plugin fill out [Feature Request Form](https://github.com/donavanbecker/homebridge-resideo/issues/new?assignees=&labels=&template=feature_request.md).",
+  "footerDisplay": "Your Resideo account has been linked. Please raise any issues on our [project page](https://github.com/homebridge-plugins/homebridge-resideo/issues).\n\nIf you would like to have other Resideo Devices besides Thermostat, Leak Sensors, or Room Sensors added to this plugin fill out [Feature Request Form](https://github.com/homebridge-plugins/homebridge-resideo/issues/new?assignees=&labels=&template=feature_request.md).",
   "schema": {
     "type": "object",
     "properties": {

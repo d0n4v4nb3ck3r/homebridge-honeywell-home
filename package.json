@@ -2,11 +2,14 @@
   "name": "homebridge-resideo",
   "displayName": "Resideo",
   "type": "module",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "The Resideo plugin allows you to access your Resideo device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
     "url": "https://github.com/donavanbecker"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "ISC",
   "funding": [
@@ -19,13 +22,13 @@
       "url": "https://github.com/sponsors/donavanbecker"
     }
   ],
-  "homepage": "https://github.com/donavanbecker/homebridge-resideo",
+  "homepage": "https://github.com/homebridge-plugins/homebridge-resideo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/donavanbecker/homebridge-resideo.git"
+    "url": "https://github.com/homebridge-plugins/homebridge-resideo.git"
   },
   "bugs": {
-    "url": "https://github.com/donavanbecker/homebridge-resideo/issues"
+    "url": "https://github.com/homebridge-plugins/homebridge-resideo/issues"
   },
   "keywords": [
     "homebridge-plugin",
@@ -46,7 +49,7 @@
     "leak"
   ],
   "main": "dist/index.js",
-  "icon": "https://raw.githubusercontent.com/donavanbecker/homebridge-resideo/beta-1.4.4/branding/icon.png",
+  "icon": "https://github.com/homebridge-plugins/homebridge-resideo/blob/latest/branding/icon.png?raw=true",
   "engines": {
     "homebridge": "^1.8.4 || ^2.0.0 || ^2.0.0-beta.21 || ^2.0.0-alpha.37",
     "node": "^18 || ^20 || ^22"
@@ -60,7 +63,7 @@
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "npm run clean && tsc && npm run plugin-ui",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
-    "postpublish": "npm run clean",
+    "postpublish": "npm run clean && npm ci",
     "clean": "shx rm -rf ./dist",
     "test": "npm run lint",
     "docs": "typedoc",
@@ -68,33 +71,32 @@
   },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
-    "axios": "1.7.7",
     "rxjs": "^7.8.1",
-    "undici": "^6.19.8"
+    "undici": "^6.20.1"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^3.7.1",
+    "@antfu/eslint-config": "^3.8.0",
     "@types/aes-js": "^3.1.4",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
-    "@types/jest": "^29.5.13",
+    "@types/jest": "^29.5.14",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.7.0",
+    "@types/node": "^22.7.9",
     "@types/semver": "^7.5.8",
     "@types/source-map-support": "^0.5.10",
-    "@vitest/coverage-v8": "^2.1.1",
-    "eslint": "^9.11.1",
+    "@vitest/coverage-v8": "^2.1.3",
+    "eslint": "^9.13.0",
     "eslint-plugin-format": "^0.1.2",
     "homebridge": "^1.8.4",
-    "homebridge-config-ui-x": "4.58.0",
+    "homebridge-config-ui-x": "4.62.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.7",
-    "npm-check-updates": "^17.1.3",
+    "npm-check-updates": "^17.1.4",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.26.7",
-    "typescript": "^5.6.2",
+    "typedoc": "^0.26.10",
+    "typescript": "^5.6.3",
     "typescript-axios-wb": "^1.0.3",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.3"
   }
 }

@@ -4,5 +4,5 @@ contact_links:
     url: https://discord.gg/8fpZA4S
     about: Please ask and answer questions here.
   - name: Homebridge-Resideo - Pull Requests
-    url: https://github.com/donavanbecker/homebridge-resideo/pulls
+    url: https://github.com/homebridge-plugins/homebridge-resideo/pulls
     about: Please report security vulnerabilities here.

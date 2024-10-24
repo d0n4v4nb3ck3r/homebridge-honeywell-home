@@ -394,26 +394,12 @@ export class RoomSensorThermostat extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      const device: any = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+      const device: any = await this.platform.makeRequest(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+        method: 'GET',
         params: {
           locationId: this.location.locationID,
         },
-      })).data
-      /*
-    const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
-      method: 'GET',
-      query: {
-        'locationId': this.location.locationID,
-        'apikey': this.config.credentials?.consumerKey,
-      },
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    const action = 'refreshStatus';
-    await this.statusCode(statusCode, action);
-    const deviceStatus: any = await body.json(); */
+      })
       this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`)
       this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${device.deviceClass} ${this.accessory.displayName} Fetched update for: ${this.device.name} from Resideo API: ${JSON.stringify(this.device.changeableValues)}`)
       this.parseStatus(device)
@@ -440,7 +426,7 @@ export class RoomSensorThermostat extends deviceBase {
   async refreshSensorStatus(): Promise<void> {
     try {
       if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat') {
-        if (this.device.deviceID.startsWith('LCC')) {
+        if (typeof this.device.deviceID === 'string' && this.device.deviceID.startsWith('LCC')) {
           if (this.device.deviceModel.startsWith('T9')) {
             if (this.device.groups) {
               const groups = this.device.groups
@@ -490,27 +476,28 @@ export class RoomSensorThermostat extends deviceBase {
 
   async refreshRoomPriority(): Promise<void> {
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat') {
-      const roomPriorityStatus = (await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
-        params: {
-          locationId: this.location.locationID,
-        },
-      })).data
-
-      /* const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
-        method: 'GET',
-        query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
-        },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const action = 'refreshRoomPriority';
-      await this.statusCode(statusCode, action);
-      const roomPriorityStatus: any = await body.json(); */
-      this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} (refreshRoomPriority) roomPriorityStatus: ${JSON.stringify(roomPriorityStatus)}`)
+      try {
+        const roomPriorityStatus = await this.platform.makeRequest(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+          method: 'GET',
+          params: {
+            locationId: this.location.locationID,
+          },
+        })
+        this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} (refreshRoomPriority) roomPriorityStatus: ${JSON.stringify(roomPriorityStatus)}`)
+      } catch (e: any) {
+        const action = 'refreshRoomPriority'
+        if (this.device.retry) {
+          // Refresh the status from the API
+          interval(5000)
+            .pipe(skipWhile(() => this.thermostatUpdateInProgress))
+            .pipe(take(1))
+            .subscribe(async () => {
+              await this.refreshRoomPriority()
+            })
+        }
+        this.resideoAPIError(e, action)
+        this.apiError(e)
+      }
     }
     this.parseStatus(this.device, this.sensorAccessory)
     this.updateHomeKitCharacteristics()
@@ -549,27 +536,29 @@ export class RoomSensorThermostat extends deviceBase {
         }
 
         // Make the API request
-        await this.platform.axios.put(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, payload, {
-          params: {
-            locationId: this.location.locationID,
-          },
-        })
-        /* const { body, statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-          query: {
-            'locationId': this.location.locationID,
-            'apikey': this.config.credentials?.consumerKey,
-          },
-          headers: {
-            'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const action = 'pushRoomChanges';
-        await this.statusCode(statusCode, action);
-        this.debugLog(`(pushRoomChanges) body: ${JSON.stringify(body)}`); */
-        this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} pushRoomChanges: ${JSON.stringify(payload)}`)
+        try {
+          await this.platform.makeRequest(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+            params: {
+              locationId: this.location.locationID,
+            },
+          })
+          this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} pushRoomChanges: ${JSON.stringify(payload)}`)
+        } catch (e: any) {
+          const action = 'pushRoomChanges'
+          if (this.device.retry) {
+            // Refresh the status from the API
+            interval(5000)
+              .pipe(skipWhile(() => this.thermostatUpdateInProgress))
+              .pipe(take(1))
+              .subscribe(async () => {
+                await this.pushRoomChanges()
+              })
+          }
+          this.resideoAPIError(e, action)
+          this.apiError(e)
+        }
       }
       // Refresh the status from the API
       await this.refreshSensorStatus()
@@ -612,25 +601,13 @@ export class RoomSensorThermostat extends deviceBase {
       this.successLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} set request (${JSON.stringify(payload)}) to Resideo API.`)
 
       // Make the API request
-      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}`, payload, {
+      await this.platform.makeRequest(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
         params: {
           locationId: this.location.locationID,
         },
       })
-      /* const { statusCode } = await request(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        query: {
-          'locationId': this.location.locationID,
-          'apikey': this.config.credentials?.consumerKey,
-        },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const action = 'pushChanges';
-      await this.statusCode(statusCode, action); */
       this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
     } catch (e: any) {
       const action = 'pushChanges'
