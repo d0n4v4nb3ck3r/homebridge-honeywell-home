@@ -219,20 +219,21 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       headers: {
         'Authorization': string
         'Content-Type': string
-        'apikey': string | undefined
       }
     } = {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
         'Content-Type': 'application/json',
-        'apikey': this.config.credentials?.consumerKey,
       },
     }
 
+    const url = `${LocationURL}?apikey=${this.config.credentials?.consumerKey}`
+
+    this.debugLog(`Request URL: ${url}`)
     this.debugLog(`Request options: ${JSON.stringify(options)}`)
 
-    const { body, statusCode } = await request(`${LocationURL}?apikey=${this.config.credentials?.consumerKey}`, options)
+    const { body, statusCode } = await request(url, options)
 
     this.debugLog(`Response status code: ${statusCode}`)
 
