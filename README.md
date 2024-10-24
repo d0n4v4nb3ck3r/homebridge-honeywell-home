@@ -1,6 +1,6 @@
 <span align="center">
 
-<a href="https://github.com/homebridge/verified/blob/latest/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/donavanbecker/homebridge-resideo/latest/branding/Homebridge_x_Resideo.svg?sanitize=true" width="350px"></a>
+<a href="https://github.com/homebridge/verified/blob/latest/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-resideo/latest/branding/Homebridge_x_Resideo.svg?sanitize=true" width="350px"></a>
 
 # Homebridge Resideo
 

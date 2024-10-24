@@ -3,8 +3,6 @@ name: Node-CI Beta
 on:
   push:
     branches: [beta-*.*.*, beta]
-  release:
-    types: [prereleased]
   workflow_dispatch:
 
 jobs:
@@ -21,7 +19,7 @@ jobs:
   publish:
     needs: lint
 
-    if: ${{ github.repository == 'donavanbecker/homebridge-resideo' }}
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
 
     uses: donavanbecker/.github/.github/workflows/npm-publish.yml@latest
     with:
@@ -32,14 +30,26 @@ jobs:
     secrets:
       npm_auth_token: ${{ secrets.npm_token }}
 
-  github-releases-to-discord:
+  pre-release:
     needs: publish
-
-    if: ${{ github.repository == 'donavanbecker/homebridge-resideo' && github.event.release.prerelease == true }}
-
-    uses: OpenWonderLabs/.github/.github/workflows/discord-webhooks.yml@latest
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
+    uses: donavanbecker/.github/.github/workflows/pre-release.yml@latest
     with:
-      footer_title: "Resideo"
+      npm_version: ${{ needs.publish.outputs.NPM_VERSION }}
+      body: |
+        **Beta Release**
+        **Version**: v${{ needs.publish.outputs.NPM_VERSION }}
+        [How To Test Beta Releases](https://github.com/homebridge-plugins/homebridge-resideo/wiki/Beta-Version)
+
+  github-releases-to-discord:
+    name: Discord Webhooks
+    needs: [build_and_test,publish]
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
+    uses: donavanbecker/.github/.github/workflows/discord-webhooks.yml@latest
+    with:
+      title: "Resideo Beta Release"
+      description: |
+        Version `v${{ needs.publish.outputs.NPM_VERSION }}`
+      url: "https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v${{ needs.publish.outputs.NPM_VERSION }}"
     secrets:
-      DISCORD_WEBHOOK_URL_LATEST: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
-      DISCORD_WEBHOOK_URL_BETA: ${{ secrets.DISCORD_WEBHOOK_URL_BETA }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_BETA || secrets.DISCORD_WEBHOOK_URL_LATEST }}

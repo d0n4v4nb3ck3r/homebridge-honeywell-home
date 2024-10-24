@@ -1,10 +1,8 @@
 name: Node Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   build_and_test:
@@ -17,20 +15,21 @@ jobs:
   publish:
     needs: build_and_test
 
-    if: ${{ github.repository == 'donavanbecker/homebridge-resideo' }}
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
 
     uses: donavanbecker/.github/.github/workflows/npm-publish.yml@latest
     secrets:
       npm_auth_token: ${{ secrets.npm_token }}
 
   github-releases-to-discord:
-    needs: publish
-
-    if: ${{ github.repository == 'donavanbecker/homebridge-august' }}
-
+    name: Discord Webhooks
+    needs: [build_and_test,publish]
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
     uses: donavanbecker/.github/.github/workflows/discord-webhooks.yml@latest
     with:
-      footer_title: "Resideo"
+      title: "Resideo Release"
+      description: |
+        Version `v${{ needs.publish.outputs.NPM_VERSION }}`
+      url: "https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v${{ needs.publish.outputs.NPM_VERSION }}"
     secrets:
-      DISCORD_WEBHOOK_URL_LATEST: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
-      DISCORD_WEBHOOK_URL_BETA: ${{ secrets.DISCORD_WEBHOOK_URL_BETA }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
