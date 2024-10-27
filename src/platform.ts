@@ -3,12 +3,11 @@ import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
  *
  * platform.ts: homebridge-resideo.
  */
-import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory, UnknownContext } from 'homebridge'
+import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge'
 
 import type {
   accessoryAttribute,
   devicesConfig,
-  HttpMethod,
   location,
   locations,
   resideoDevice,
@@ -18,14 +17,12 @@ import type {
   T9groups,
 } from './settings.js'
 
-import { Buffer } from 'node:buffer'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { stringify } from 'node:querystring'
 
 import axios from 'axios'
-import { request } from 'undici'
 
 import { LeakSensor } from './devices/leaksensors.js'
 import { RoomSensors } from './devices/roomsensors.js'
