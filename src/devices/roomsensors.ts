@@ -199,9 +199,9 @@ export class RoomSensors extends deviceBase {
   /**
    * Parse the device status from the Resideo api
    */
-  async parseStatus(device: resideoDevice & devicesConfig, sensorAccessory: sensorAccessory): Promise<void> {
+  async parseStatus(): Promise<void> {
     // Get the accessory value
-    const accessoryValue = sensorAccessory.accessoryValue as accessoryValue
+    const accessoryValue = this.sensorAccessory?.accessoryValue as accessoryValue
       ?? { batteryStatus: 'Ok', indoorTemperature: 20, indoorHumidity: 50, occupancyDet: false }
 
     // Set Room Sensor State
@@ -210,33 +210,33 @@ export class RoomSensors extends deviceBase {
     } else {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
     }
-    this.debugLog(`${sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} StatusLowBattery: ${this.Battery.StatusLowBattery}`)
+    this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} StatusLowBattery: ${this.Battery.StatusLowBattery}`)
 
     // Set Temperature Sensor State
-    if (!device.thermostat?.roomsensor?.hide_temperature) {
+    if (!this.device.thermostat?.roomsensor?.hide_temperature) {
       if (this.TemperatureSensor) {
         this.TemperatureSensor.CurrentTemperature = toCelsius(accessoryValue.indoorTemperature, this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS)
-        this.debugLog(`${sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°c`)
+        this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°c`)
       }
     }
 
     // Set Occupancy Sensor State
-    if (!device.thermostat?.roomsensor?.hide_occupancy) {
+    if (!this.device.thermostat?.roomsensor?.hide_occupancy) {
       if (this.OccupancySensor) {
         if (accessoryValue.occupancyDet) {
           this.OccupancySensor.OccupancyDetected = 1
         } else {
           this.OccupancySensor.OccupancyDetected = 0
         }
-        this.debugLog(`${sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} OccupancyDetected: ${this.OccupancySensor.OccupancyDetected}`)
+        this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} OccupancyDetected: ${this.OccupancySensor.OccupancyDetected}`)
       }
     }
 
     // Set Humidity Sensor State
-    if (!device.thermostat?.roomsensor?.hide_humidity) {
+    if (!this.device.thermostat?.roomsensor?.hide_humidity) {
       if (this.HumiditySensor) {
         this.HumiditySensor.CurrentRelativeHumidity = accessoryValue.indoorHumidity
-        this.debugLog(`${sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`)
+        this.debugLog(`${this.sensorAccessory?.accessoryAttribute.type} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`)
       }
     }
   }
@@ -247,8 +247,8 @@ export class RoomSensors extends deviceBase {
   async refreshStatus(): Promise<void> {
     try {
       const roomsensors = await this.platform.getCurrentSensorData(this.location, this.device, this.group)
-      const sensorAccessory = roomsensors[this.roomId][this.accessoryId]
-      this.parseStatus(this.device, sensorAccessory)
+      this.sensorAccessory = roomsensors[this.roomId][this.accessoryId]
+      this.parseStatus()
       this.updateHomeKitCharacteristics()
     } catch (e: any) {
       const action = 'refreshStatus'

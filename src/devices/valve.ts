@@ -57,7 +57,6 @@ export class Valve extends deviceBase {
       .onGet(() => this.Valve.InUse)
 
     this.refreshStatus()
-    this.updateHomeKitCharacteristics()
 
     interval(this.deviceRefreshRate * 1000)
       .pipe(skipWhile(() => this.valveUpdateInProgress))
@@ -102,21 +101,13 @@ export class Valve extends deviceBase {
 
   async refreshStatus(): Promise<void> {
     try {
-      const response = await this.platform.makeRequest(
-        `${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`,
-        {
-          method: 'GET',
-          query: {
+      const device: any = (
+        await this.platform.axios.get(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
+          params: {
             locationId: this.location.locationID,
-            apikey: this.config.credentials?.consumerKey,
           },
-          headers: {
-            'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      const device = await response.json()
+        })
+      ).data
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshStatus) device: ${JSON.stringify(device)}`)
       this.parseStatus(device as resideoDevice & devicesConfig)
       this.updateHomeKitCharacteristics()
@@ -141,28 +132,15 @@ export class Valve extends deviceBase {
       const payload: payload = {
         state: this.Valve.Active === this.hap.Characteristic.Active.ACTIVE ? 'open' : 'closed',
       }
-      const response = await this.platform.makeRequest(
-        `${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`,
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
-          query: {
-            locationId: this.location.locationID,
-            apikey: this.config.credentials?.consumerKey,
-          },
-          headers: {
-            'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-            'Content-Type': 'application/json',
-          },
+
+      await this.platform.axios.post(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, payload, {
+        params: {
+          locationId: this.location.locationID,
         },
-      )
+      })
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
-      if (response.statusCode === 200) {
-        this.successLog(`${this.device.deviceClass}: ${this.accessory.displayName} request to Resideo API, state: ${JSON.stringify(payload.state)} sent successfully`)
-      } else {
-        const action = 'pushChanges'
-        await this.statusCode(response.statusCode, action)
-      }
+      const action = 'pushChanges'
+      await this.statusCode(200, action)
     } catch (e: any) {
       const action = 'pushChanges'
       await this.resideoAPIError(e, action)

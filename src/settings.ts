@@ -403,7 +403,7 @@ export interface accessoryValue {
 }
 
 // T9 Room Priority
-export interface Priority {
+export interface roomPriorityStatus {
   deviceId: string
   status: string
   currentPriority: CurrentPriority
@@ -466,4 +466,10 @@ export interface maintenance {
   antiScaleDOWSettings: string // 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday'
   antiScaleDOMSettings: number // If monthly anti - scale is used, day of the month.
   antiScaleTimeSettings: string // Time for anti - scale in 24 hrs format
+}
+
+export interface fanStatus {
+  changeableValues: {
+    mode: string
+  }
 }

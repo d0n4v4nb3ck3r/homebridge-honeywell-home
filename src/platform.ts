@@ -1,3 +1,4 @@
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 /* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
  * platform.ts: homebridge-resideo.
@@ -23,6 +24,7 @@ import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { stringify } from 'node:querystring'
 
+import axios from 'axios'
 import { request } from 'undici'
 
 import { LeakSensor } from './devices/leaksensors.js'
@@ -55,6 +57,10 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   version!: string
   action!: string
 
+  public axios: AxiosInstance = axios.create({
+    responseType: 'json',
+  })
+
   constructor(log: Logging, config: ResideoPlatformConfig, api: API) {
     this.api = api
     this.hap = this.api.hap
@@ -77,6 +83,15 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.apiError(e)
       return
     }
+
+    // setup axios interceptor to add headers / api key to each request
+    this.axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
+      request.headers!.Authorization = `Bearer ${this.config.credentials?.accessToken}`
+      request.params = request.params || {}
+      request.params.apikey = this.config.credentials?.consumerKey
+      request.headers!['Content-Type'] = 'application/json'
+      return request
+    })
 
     this.api.on('didFinishLaunching', async () => {
       this.debugLog('Executed didFinishLaunching callback')
@@ -151,25 +166,33 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   async getAccessToken() {
     try {
       let result: any
-      if (this.config.credentials?.consumerSecret) {
-        const { body } = await request(TokenURL, {
-          method: 'POST',
-          body: stringify({
-            grant_type: 'refresh_token',
-            refresh_token: this.config.credentials!.refreshToken,
-          }),
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${Buffer.from(`${this.config.credentials?.consumerKey}:${this.config.credentials?.consumerSecret}`).toString('base64')}`,
-          },
-        })
-        result = await body.json()
+
+      if (this.config.credentials!.consumerSecret && this.config.credentials?.consumerKey && this.config.credentials?.refreshToken) {
+        result = (
+          await axios({
+            url: TokenURL,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            auth: {
+              username: this.config.credentials.consumerKey,
+              password: this.config.credentials.consumerSecret,
+            },
+            data: stringify({
+              grant_type: 'refresh_token',
+              refresh_token: this.config.credentials.refreshToken,
+            }),
+            responseType: 'json',
+          })
+        ).data
       } else {
         this.warnLog('Please re-link your account in the Homebridge UI.')
       }
 
       this.config.credentials!.accessToken = result.access_token
       this.debugLog(`Got access token: ${this.config.credentials!.accessToken}`)
+      // check if the refresh token has changed
       if (result.refresh_token !== this.config.credentials!.refreshToken) {
         this.debugLog(`New refresh token: ${result.refresh_token}`)
         await this.updateRefreshToken(result.refresh_token)
@@ -212,55 +235,20 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   async discoverlocations(): Promise<location[]> {
-    this.debugLog(`accessToken: ${this.config.credentials?.accessToken}, consumerKey: ${this.config.credentials?.consumerKey}`)
-
-    const options: {
-      method: HttpMethod
-      headers: {
-        'Authorization': string
-        'Content-Type': string
-      }
-    } = {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-
-    const url = `${LocationURL}?apikey=${this.config.credentials?.consumerKey}`
-
-    this.debugLog(`Request URL: ${url}`)
-    this.debugLog(`Request options: ${JSON.stringify(options)}`)
-
-    const { body, statusCode } = await request(url, options)
-
-    this.debugLog(`Response status code: ${statusCode}`)
-
-    if (statusCode !== 200) {
-      throw new Error(`Failed to fetch locations: ${statusCode}`)
-    }
-
-    const locations = await body.json() as location[]
-    this.debugLog(`(discoverlocations) Location: ${JSON.stringify(locations)}`)
+    const locations = (await this.axios.get(LocationURL)).data
     return locations
   }
 
   public async getCurrentSensorData(location: location, device: resideoDevice & devicesConfig, group: T9groups) {
     if (!this.sensorData[device.deviceID] || this.sensorData[device.deviceID].timestamp < Date.now()) {
-      const { body } = await request(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-          'apikey': this.config.credentials?.consumerKey,
+      const response: any = await this.axios.get(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
+        params: {
+          locationId: location.locationID,
         },
-        query: { locationId: location.locationID },
       })
-      const response = await body.json()
       this.sensorData[device.deviceID] = {
         timestamp: Date.now() + 45000,
-        data: this.normalizeSensorDate((response as { data: any }).data),
+        data: this.normalizeSensorDate(response.data),
       }
       this.debugLog(`getCurrentSensorData ${device.deviceType} ${device.deviceModel}: ${this.sensorData[device.deviceID]}`)
     } else {
@@ -788,12 +776,6 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.platformLogging = 'standard'
       await this.debugWarnLog(`Using ${this.platformLogging} Logging`)
     }
-  }
-
-  public async makeRequest(url: string, options: any): Promise<any> {
-    const { body, statusCode } = await request(url, options)
-    const data = await body.json()
-    return { data, statusCode }
   }
 
   async getVersion() {

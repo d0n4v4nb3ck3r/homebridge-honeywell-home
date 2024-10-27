@@ -5,7 +5,7 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
 import type { ResideoPlatform } from '../platform.js'
-import type { devicesConfig, Fan, location, payload, Priority, resideoDevice } from '../settings.js'
+import type { devicesConfig, fanStatus, location, payload, resideoDevice, roomPriorityStatus } from '../settings.js'
 
 // import { request } from 'undici';
 import { interval, Subject } from 'rxjs'
@@ -57,18 +57,17 @@ export class Thermostats extends deviceBase {
   // Config
   thermostatSetpointStatus!: string
 
-  // Others - T9 Only
-  roomPriorityStatus!: Priority
-
   // Thermostat Updates
   thermostatUpdateInProgress!: boolean
   doThermostatUpdate!: Subject<void>
 
   // Fan Updates
+  fanStatus!: fanStatus
   fanUpdateInProgress!: boolean
   doFanUpdate!: Subject<void>
 
   // Room Updates - T9 Only
+  roomPriorityStatus!: roomPriorityStatus
   roomUpdateInProgress!: boolean
   doRoomUpdate!: Subject<void>
 
@@ -312,9 +311,6 @@ export class Thermostats extends deviceBase {
     // Intial Refresh
     this.refreshStatus()
 
-    // Retrieve initial values and updateHomekit
-    this.updateHomeKitCharacteristics()
-
     // Start an update interval
     interval(this.config.options!.refreshRate! * 1000)
       .pipe(skipWhile(() => this.thermostatUpdateInProgress))
@@ -435,89 +431,85 @@ export class Thermostats extends deviceBase {
   /**
    * Parse the device status from the Resideo api
    */
-  async parseStatus(device: resideoDevice & devicesConfig, fanStatus?: Fan, roomPriorityStatus?: Priority): Promise<void> {
+  async parseStatus(): Promise<void> {
     this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus`)
-    if (device.units === 'Fahrenheit') {
+    if (this.device.units === 'Fahrenheit') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT}`)
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.FAHRENHEIT}`)
     }
-    if (device.units === 'Celsius') {
+    if (this.device.units === 'Celsius') {
       this.Thermostat.TemperatureDisplayUnits = this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS}`)
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus TemperatureDisplayUnits: ${this.hap.Characteristic.TemperatureDisplayUnits.CELSIUS}`)
     }
 
-    this.Thermostat.CurrentTemperature = await toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))
-    this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus CurrentTemperature: ${toCelsius(device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))}`)
+    this.Thermostat.CurrentTemperature = toCelsius(this.device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))
+    this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus CurrentTemperature: ${toCelsius(this.device.indoorTemperature!, Number(this.Thermostat.TemperatureDisplayUnits))}`)
 
-    if (device.indoorHumidity) {
+    if (this.device.indoorHumidity) {
       if (this.HumiditySensor) {
-        this.HumiditySensor.CurrentRelativeHumidity = device.indoorHumidity
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`)
+        this.HumiditySensor.CurrentRelativeHumidity = this.device.indoorHumidity
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}`)
       }
     }
 
-    if (device.changeableValues!.heatSetpoint > 0) {
-      this.Thermostat.HeatingThresholdTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus HeatingThresholdTemperature: ${toCelsius(device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`)
+    if (this.device.changeableValues!.heatSetpoint > 0) {
+      this.Thermostat.HeatingThresholdTemperature = toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus HeatingThresholdTemperature: ${toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`)
     }
 
-    if (device.changeableValues!.coolSetpoint > 0) {
-      this.Thermostat.CoolingThresholdTemperature = await toCelsius(device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
-      this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus CoolingThresholdTemperature: ${toCelsius(device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`)
+    if (this.device.changeableValues!.coolSetpoint > 0) {
+      this.Thermostat.CoolingThresholdTemperature = toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus CoolingThresholdTemperature: ${toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))}`)
     }
 
-    this.Thermostat.TargetHeatingCoolingState = HomeKitModes[device.changeableValues!.mode]
-    this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus TargetHeatingCoolingState: ${HomeKitModes[device.changeableValues!.mode]}`)
+    this.Thermostat.TargetHeatingCoolingState = HomeKitModes[this.device.changeableValues!.mode]
+    this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus TargetHeatingCoolingState: ${HomeKitModes[this.device.changeableValues!.mode]}`)
 
     /**
      * The CurrentHeatingCoolingState is either 'Heat', 'Cool', or 'Off'
      * CurrentHeatingCoolingState =  OFF = 0, HEAT = 1, COOL = 2
      */
-    switch (device.operationStatus!.mode) {
+    switch (this.device.operationStatus!.mode) {
       case 'Heat':
         this.Thermostat.CurrentHeatingCoolingState = this.hap.Characteristic.CurrentHeatingCoolingState.HEAT
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (HEAT): ${device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (HEAT): ${this.device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
         break
       case 'Cool':
         this.Thermostat.CurrentHeatingCoolingState = this.hap.Characteristic.CurrentHeatingCoolingState.COOL
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (COOL): ${device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (COOL): ${this.device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
         break
       default:
         this.Thermostat.CurrentHeatingCoolingState = this.hap.Characteristic.CurrentHeatingCoolingState.OFF
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (OFF): ${device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus Currently Mode (OFF): ${this.device.operationStatus!.mode}(${this.Thermostat.CurrentHeatingCoolingState})`)
     }
 
     // Set the TargetTemperature value based on the current mode
     if (this.Thermostat.TargetHeatingCoolingState === this.hap.Characteristic.TargetHeatingCoolingState.HEAT) {
-      if (device.changeableValues!.heatSetpoint > 0) {
-        this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
-        this.debugLog(
-          `${device.deviceClass} ${this.accessory.displayName} parseStatus TargetTemperature (HEAT): ${toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))})`,
-        )
+      if (this.device.changeableValues!.heatSetpoint > 0) {
+        this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus TargetTemperature (HEAT): ${toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))})`)
       }
     } else {
-      if (device.changeableValues) {
-        if (device.changeableValues.coolSetpoint > 0) {
-          this.Thermostat.TargetTemperature = await toCelsius(device.changeableValues.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
-          this.debugLog(
-            `${this.device.deviceClass} ${this.accessory.displayName} parseStatus TargetTemperature (OFF/COOL): ${toCelsius(device.changeableValues.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))})`,
-          )
+      if (this.device.changeableValues) {
+        if (this.device.changeableValues.coolSetpoint > 0) {
+          this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+          this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} parseStatus TargetTemperature (OFF/COOL): ${toCelsius(this.device.changeableValues.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))})`)
         }
       }
     }
 
     // Set the Target Fan State
-    if (device.settings?.fan && !this.device.thermostat?.hide_fan) {
+    if (this.device.settings?.fan && !this.device.thermostat?.hide_fan) {
       if (this.Fan) {
-        if (fanStatus) {
-          this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanStatus: ${JSON.stringify(fanStatus)}`)
-          if (fanStatus.changeableValues.mode === 'Auto') {
+        if (this.fanStatus) {
+          this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanStatus: ${JSON.stringify(this.fanStatus)}`)
+          if (this.fanStatus.changeableValues.mode === 'Auto') {
             this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.AUTO
             this.Fan.Active = this.hap.Characteristic.Active.INACTIVE
-          } else if (fanStatus.changeableValues.mode === 'On') {
+          } else if (this.fanStatus.changeableValues.mode === 'On') {
             this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL
             this.Fan.Active = this.hap.Characteristic.Active.ACTIVE
-          } else if (fanStatus.changeableValues.mode === 'Circulate') {
+          } else if (this.fanStatus.changeableValues.mode === 'Circulate') {
             this.Fan.TargetFanState = this.hap.Characteristic.TargetFanState.MANUAL
             this.Fan.Active = this.hap.Characteristic.Active.INACTIVE
           }
@@ -526,11 +518,8 @@ export class Thermostats extends deviceBase {
     }
 
     // Set the Room Priority Status - T9 Only
-    if (device.thermostat?.roompriority?.deviceType === 'Thermostat' && device.deviceModel === 'T9-T10') {
-      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} roomPriorityStatus: ${JSON.stringify(roomPriorityStatus)}`)
-      if (roomPriorityStatus) {
-        this.roomPriorityStatus = roomPriorityStatus
-      }
+    if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat' && this.device.deviceModel === 'T9-T10') {
+      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} roomPriorityStatus: ${JSON.stringify(this.roomPriorityStatus)}`)
     }
   }
 
@@ -539,10 +528,14 @@ export class Thermostats extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      const deviceStatus: any = await this.getDeviceStatus()
+      const device: any = await this.getDeviceStatus()
       const fanStatus: any = await this.getFanStatus()
       const roomPriorityStatus: any = await this.getRoomPriorityStatus()
-      this.parseStatus(deviceStatus, fanStatus, roomPriorityStatus)
+      this.device = device
+      this.fanStatus = fanStatus
+      this.roomPriorityStatus = roomPriorityStatus
+      this.parseStatus()
+      this.updateHomeKitCharacteristics()
     } catch (e: any) {
       const action = 'refreshStatus'
       if (this.device.retry) {
@@ -560,80 +553,51 @@ export class Thermostats extends deviceBase {
   }
 
   private async getDeviceStatus() {
-    const url = `${DeviceURL}/thermostats/${this.device.deviceID}`
-    const options = {
-      method: 'GET',
-      query: {
-        locationId: this.location.locationID,
-        apikey: this.config.credentials?.consumerKey,
-      },
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    }
-
-    const { data: device, statusCode } = await this.platform.makeRequest(url, options)
-    const action = 'refreshStatus'
-    await this.statusCode(statusCode, action)
-
+    const device: any = (
+      await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}`, {
+        params: {
+          locationId: this.location.locationID,
+        },
+      })
+    ).data
     this.debugLog(`(refreshStatus) ${device.deviceClass} device: ${JSON.stringify(device)}`)
     this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name} from Resideo API: ${JSON.stringify(this.device.changeableValues)}`)
     return device
   }
 
   private async getRoomPriorityStatus() {
-    let roomPriorityStatus: any
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat' && this.device.deviceModel === 'T9-T10') {
-      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/priority`
-      const options = {
-        method: 'GET',
-        query: {
-          locationId: this.location.locationID,
-          apikey: this.config.credentials?.consumerKey,
-        },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const { data: roomPriority, statusCode } = await this.platform.makeRequest(url, options)
+      const roompriority = (
+        await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, {
+          params: {
+            locationId: this.location.locationID,
+          },
+        })
+      ).data
+      this.debugLog(`Thermostat: ${this.accessory.displayName} Priority: ${JSON.stringify(roompriority.data)}`)
       const action = 'refreshRoomPriority'
-      await this.statusCode(statusCode, action)
-
-      this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshRoomPriority) roompriority: ${JSON.stringify(roomPriority)}`)
-      roomPriorityStatus = roomPriority
+      await this.statusCode(200, action)
+      return roompriority
     }
-    return roomPriorityStatus
   }
 
   private async getFanStatus() {
-    let fanSettings: any
     if (this.device.settings?.fan && !this.device.thermostat?.hide_fan) {
-      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/fan`
-      const options = {
-        method: 'GET',
-        query: {
-          locationId: this.location.locationID,
-          apikey: this.config.credentials?.consumerKey,
-        },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const { data: fan, statusCode } = await this.platform.makeRequest(url, options)
+      const fan: any = (
+        await this.platform.axios.get(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, {
+          params: {
+            locationId: this.location.locationID,
+          },
+        })
+      ).data
       const action = 'refreshFanStatus'
-      await this.statusCode(statusCode, action)
-
+      await this.statusCode(200, action)
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} (refreshFanStatus) fanMode: ${JSON.stringify(fan)}`)
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} fanMode: ${JSON.stringify(fan)}`)
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} refreshStatus for ${this.device.name} Fan from Resideo Fan API: ${JSON.stringify(fan)}`)
-      fanSettings = fan
+      return fan
     }
-    return fanSettings
+    return null
   }
 
   /**
@@ -711,7 +675,7 @@ export class Thermostats extends deviceBase {
       switch (this.device.deviceModel) {
         case 'Unknown':
           this.errorLog(JSON.stringify(this.device))
-          payload.thermostatSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+          payload.thermostatSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
           switch (this.device.units) {
             case 'Fahrenheit':
               payload.unit = 'Fahrenheit'
@@ -729,47 +693,36 @@ export class Thermostats extends deviceBase {
           // Set the heat and cool set point value based on the selected mode
           switch (this.Thermostat.TargetHeatingCoolingState) {
             case this.hap.Characteristic.TargetHeatingCoolingState.HEAT:
-              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
-              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (HEAT): ${this.Thermostat.TargetHeatingCoolingState}, TargetTemperature: ${toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint, CoolingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} coolSetpoint`)
               break
             case this.hap.Characteristic.TargetHeatingCoolingState.COOL:
-              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
-              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (COOL): ${this.Thermostat.TargetHeatingCoolingState}, TargetTemperature: ${toFahrenheit(Number(this.Thermostat.TargetTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} coolSetpoint, CoolingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`)
               break
             case this.hap.Characteristic.TargetHeatingCoolingState.AUTO:
-              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
-              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (AUTO): ${this.Thermostat.TargetHeatingCoolingState}, CoolingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} coolSetpoint, HeatingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`)
               break
             default:
-              payload.coolSetpoint = await toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
-              payload.heatSetpoint = await toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.coolSetpoint = toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
+              payload.heatSetpoint = toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))
               this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} TargetHeatingCoolingState (OFF): ${this.Thermostat.TargetHeatingCoolingState}, CoolingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.CoolingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} coolSetpoint, HeatingThresholdTemperature: ${toFahrenheit(Number(this.Thermostat.HeatingThresholdTemperature), Number(this.Thermostat.TemperatureDisplayUnits))} heatSetpoint`)
           }
           this.successLog(`${this.device.deviceClass} ${this.accessory.displayName} set request (${JSON.stringify(payload)}) to Resideo API.`)
       }
 
       // Attempt to make the API request
-      const url = `${DeviceURL}/thermostats/${this.device.deviceID}`
-      const options = {
-        method: 'POST',
-        data: payload,
+      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}`, payload, {
         params: {
           locationId: this.location.locationID,
-          apikey: this.config.credentials?.consumerKey,
         },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const { statusCode } = await this.platform.makeRequest(url, options)
+      })
       const action = 'pushChanges'
-      await this.statusCode(statusCode, action)
-
+      await this.statusCode(200, action)
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
@@ -857,24 +810,13 @@ export class Thermostats extends deviceBase {
           )
         }
         // Make the API request
-        const url = `${DeviceURL}/thermostats/${this.device.deviceID}/priority`
-        const options = {
-          method: 'PUT',
-          data: payload,
+        await this.platform.axios.put(`${DeviceURL}/thermostats/${this.device.deviceID}/priority`, payload, {
           params: {
             locationId: this.location.locationID,
-            apikey: this.config.credentials?.consumerKey,
           },
-          headers: {
-            'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-
-        const { statusCode } = await this.platform.makeRequest(url, options)
+        })
         const action = 'pushRoomChanges'
-        await this.statusCode(statusCode, action)
-
+        await this.statusCode(200, action)
         this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushRoomChanges: ${JSON.stringify(payload)}`)
       }
     }
@@ -990,9 +932,9 @@ export class Thermostats extends deviceBase {
 
     // Set the TargetTemperature value based on the selected mode
     if (this.Thermostat.TargetHeatingCoolingState === this.hap.Characteristic.TargetHeatingCoolingState.HEAT) {
-      this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+      this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.heatSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
     } else {
-      this.Thermostat.TargetTemperature = await toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
+      this.Thermostat.TargetTemperature = toCelsius(this.device.changeableValues!.coolSetpoint, Number(this.Thermostat.TemperatureDisplayUnits))
     }
     this.Thermostat.Service.updateCharacteristic(this.hap.Characteristic.TargetTemperature, this.Thermostat.TargetTemperature)
     if (this.device.thermostat?.roompriority?.deviceType === 'Thermostat' && this.device.deviceModel === 'T9-T10') {
@@ -1074,23 +1016,13 @@ export class Thermostats extends deviceBase {
 
       this.successLog(`Sending request for ${this.accessory.displayName} to Resideo API Fan Mode: ${payload.mode}`)
       // Make the API request
-      const url = `${DeviceURL}/thermostats/${this.device.deviceID}/fan`
-      const options = {
-        method: 'POST',
-        data: payload,
+      await this.platform.axios.post(`${DeviceURL}/thermostats/${this.device.deviceID}/fan`, payload, {
         params: {
           locationId: this.location.locationID,
-          apikey: this.config.credentials?.consumerKey,
         },
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-
-      const { statusCode } = await this.platform.makeRequest(url, options)
+      })
       const action = 'pushFanChanges'
-      await this.statusCode(statusCode, action)
+      await this.statusCode(200, action)
 
       this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} pushChanges: ${JSON.stringify(payload)}`)
     }
