@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_and_test:
-    uses: donavanbecker/.github/.github/workflows/nodejs-build-and-test.yml@latest
+    uses: homebridge/.github/.github/workflows/nodejs-build-and-test.yml@latest
     with:
       enable_coverage: true
     secrets:
@@ -17,7 +17,7 @@ jobs:
 
     if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
 
-    uses: donavanbecker/.github/.github/workflows/npm-publish.yml@latest
+    uses: homebridge/.github/.github/workflows/npm-publish.yml@latest
     secrets:
       npm_auth_token: ${{ secrets.npm_token }}
 
@@ -25,7 +25,7 @@ jobs:
     name: Discord Webhooks
     needs: [build_and_test,publish]
     if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
-    uses: donavanbecker/.github/.github/workflows/discord-webhooks.yml@latest
+    uses: homebridge/.github/.github/workflows/discord-webhooks.yml@latest
     with:
       title: "Resideo Release"
       description: |

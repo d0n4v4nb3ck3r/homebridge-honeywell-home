@@ -9,6 +9,6 @@ on:
 
 jobs:
   release-drafter:
-    uses: donavanbecker/.github/.github/workflows/release-drafter.yml@latest
+    uses: homebridge/.github/.github/workflows/release-drafter.yml@latest
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
