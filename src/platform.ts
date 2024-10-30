@@ -18,7 +18,6 @@ import type {
 } from './settings.js'
 
 import { readFileSync, writeFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { stringify } from 'node:querystring'
 
@@ -386,7 +385,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         await this.thermostatFirmwareExistingAccessory(device, existingAccessory, location)
         existingAccessory.context.device = device
         existingAccessory.context.deviceID = device.deviceID
@@ -403,6 +404,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
       await this.thermostatFirmwareNewAccessory(device, accessory, location)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceModel
@@ -422,7 +426,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         existingAccessory.context.deviceID = device.deviceID
         existingAccessory.context.model = device.deviceClass
         this.leaksensorFirmwareExistingAccessory(device, existingAccessory)
@@ -437,6 +443,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`)
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceClass
@@ -458,7 +467,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         existingAccessory.context.deviceID = device.deviceID
         existingAccessory.context.model = device.deviceClass
         this.valveFirmwareExistingAccessory(device, existingAccessory)
@@ -473,6 +484,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`)
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceClass
@@ -493,7 +507,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
-        existingAccessory.displayName = sensorAccessory.accessoryAttribute.name
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
         existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory)
@@ -508,6 +524,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Device ID: ${sensorAccessory.accessoryAttribute.serialNumber}`)
       }
       const accessory = new this.api.platformAccessory(sensorAccessory.accessoryAttribute.name, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
       accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
       accessory.context.model = sensorAccessory.accessoryAttribute.model
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory)
@@ -527,7 +546,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
-        existingAccessory.displayName = sensorAccessory.accessoryAttribute.name
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
         existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory)
@@ -542,6 +563,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
       }
       const accessory = new this.api.platformAccessory(sensorAccessory.accessoryAttribute.name, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
       accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
       accessory.context.model = sensorAccessory.accessoryAttribute.model
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory)
@@ -775,10 +799,58 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  async getVersion() {
-    const json = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf-8'))
-    this.debugLog(`Plugin Version: ${json.version}`)
-    this.version = json.version
+  /**
+   * Asynchronously retrieves the version of the plugin from the package.json file.
+   *
+   * This method reads the package.json file located in the parent directory,
+   * parses its content to extract the version, and logs the version using the debug logger.
+   * The extracted version is then assigned to the `version` property of the class.
+   *
+   * @returns {Promise<void>} A promise that resolves when the version has been retrieved and logged.
+   */
+  async getVersion(): Promise<void> {
+    const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
+    this.debugLog(`Plugin Version: ${version}`)
+    this.version = version
+  }
+
+  /**
+   * Validate and clean a string value for a Name Characteristic.
+   * @param displayName - The display name of the accessory.
+   * @param name - The name of the characteristic.
+   * @param value - The value to be validated and cleaned.
+   * @returns The cleaned string value.
+   */
+  async validateAndCleanDisplayName(displayName: string, name: string, value: string): Promise<string> {
+    if (this.config.options?.allowInvalidCharacters) {
+      return value
+    } else {
+      const validPattern = /^[\p{L}\p{N}][\p{L}\p{N} ']*[\p{L}\p{N}]$/u
+      const invalidCharsPattern = /[^\p{L}\p{N} ']/gu
+      const invalidStartEndPattern = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu
+
+      if (typeof value === 'string' && !validPattern.test(value)) {
+        this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric, space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may prevent the accessory from being added in the Home App or cause unresponsiveness.`)
+
+        // Remove invalid characters
+        if (invalidCharsPattern.test(value)) {
+          const before = value
+          this.warnLog(`Removing invalid characters from '${name}' characteristic, if you feel this is incorrect,  please enable \'allowInvalidCharacter\' in the config to allow all characters`)
+          value = value.replace(invalidCharsPattern, '')
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`)
+        }
+
+        // Ensure it starts and ends with an alphanumeric character
+        if (invalidStartEndPattern.test(value)) {
+          const before = value
+          this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic, if you feel this is incorrect, please enable \'allowInvalidCharacter\' in the config to allow all characters`)
+          value = value.replace(invalidStartEndPattern, '')
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`)
+        }
+      }
+
+      return value
+    }
   }
 
   /**

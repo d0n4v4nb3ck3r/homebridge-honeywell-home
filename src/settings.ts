@@ -52,6 +52,7 @@ export interface credentials {
 }
 
 export interface options {
+  allowInvalidCharacters?: boolean
   logging?: string
   refreshRate?: number
   pushRate?: number
@@ -61,7 +62,7 @@ export interface options {
 export interface devicesConfig extends resideoDevice {
   deviceID: string | number // Updated to handle both string and number
   deviceClass: string
-  userDefinedDeviceName: string
+  configDeviceName: string
   hide_device?: boolean
   thermostat?: thermostat
   valve?: valve
