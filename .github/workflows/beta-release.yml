@@ -1,4 +1,4 @@
-name: Node-CI Beta
+name: Beta Release
 
 on:
   push:
@@ -20,6 +20,9 @@ jobs:
     needs: lint
 
     if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
+
+    permissions:
+      id-token: write
 
     uses: homebridge/.github/.github/workflows/npm-publish.yml@latest
     with:
