@@ -18,7 +18,7 @@ import type {
 } from './settings.js'
 
 import { readFileSync, writeFileSync } from 'node:fs'
-import process from 'node:process'
+import { argv } from 'node:process'
 import { stringify } from 'node:querystring'
 
 import axios from 'axios'
@@ -786,7 +786,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformLogSettings() {
-    this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug')
+    this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
     if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
       this.platformLogging = this.config.options.logging
       await this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`)
