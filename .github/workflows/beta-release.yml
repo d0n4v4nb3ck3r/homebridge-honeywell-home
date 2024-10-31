@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
     permissions:
       id-token: write
-    uses: homebridge/.github/.github/workflows/npm-publish.yml@latest
+    uses: homebridge/.github/.github/workflows/npm-publish-esm.yml@latest
     with:
       tag: 'beta'
       dynamically_adjust_version: true
