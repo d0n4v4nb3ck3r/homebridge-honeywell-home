@@ -14,9 +14,9 @@ jobs:
 
   publish:
     needs: build_and_test
-
     if: ${{ github.repository == 'homebridge-plugins/homebridge-resideo' }}
-
+    permissions:
+      id-token: write
     uses: homebridge/.github/.github/workflows/npm-publish.yml@latest
     secrets:
       npm_auth_token: ${{ secrets.npm_token }}
