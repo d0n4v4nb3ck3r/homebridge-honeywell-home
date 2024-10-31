@@ -1,4 +1,4 @@
-name: Node Release
+name: Release
 
 on:
   release:
