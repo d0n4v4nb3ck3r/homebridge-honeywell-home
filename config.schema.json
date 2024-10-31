@@ -63,7 +63,7 @@
                 "configDeviceName": {
                   "title": "Device Name",
                   "type": "string",
-                  "pattern": "^[\\p{L}\\p{N}]+([\\p{L}\\p{N} ']*[\\p{L}\\p{N}])?$",
+                  "pattern": "^[\\p{L}\\p{N}]+([\\p{L}\\p{N} '\\s]*[\\p{L}\\p{N}])?$",
                   "placeholder": "Hallway Thermostat",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].deviceID);"
