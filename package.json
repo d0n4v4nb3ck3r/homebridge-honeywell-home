@@ -58,7 +58,7 @@
     "check": "npm install && npm outdated",
     "update": "ncu -u && npm update && npm install",
     "lint": "eslint src/**/*.ts",
-    "fix": "eslint src/**/*.ts --fix",
+    "lint:fix": "eslint src/**/*.ts --fix",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "npm run clean && tsc && npm run plugin-ui",
