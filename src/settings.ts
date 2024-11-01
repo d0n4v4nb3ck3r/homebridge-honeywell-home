@@ -55,6 +55,7 @@ export interface options {
   allowInvalidCharacters?: boolean
   logging?: string
   refreshRate?: number
+  updateRate?: number
   pushRate?: number
   devices?: devicesConfig[]
 }

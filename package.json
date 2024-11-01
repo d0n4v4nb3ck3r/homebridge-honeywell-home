@@ -1,5 +1,5 @@
 {
-  "name": "homebridge-resideo",
+  "name": "@homebridge-plugins/homebridge-resideo",
   "displayName": "Resideo",
   "type": "module",
   "version": "2.1.7",

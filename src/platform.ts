@@ -10,6 +10,7 @@ import type {
   devicesConfig,
   location,
   locations,
+  options,
   resideoDevice,
   ResideoPlatformConfig,
   sensorAccessory,
@@ -47,8 +48,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   locations?: locations
   sensorAccessory!: sensorAccessory
   firmware!: accessoryAttribute['softwareRevision']
-  platformConfig!: ResideoPlatformConfig['options']
-  platformLogging!: ResideoPlatformConfig['logging']
+  platformConfig!: ResideoPlatformConfig
+  platformLogging!: options['logging']
+  platformRefreshRate!: options['refreshRate']
+  platformPushRate!: options['pushRate']
+  platformUpdateRate!: options['updateRate']
   debugMode!: boolean
   version!: string
   action!: string
@@ -65,10 +69,19 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       return
     }
 
-    this.config = { platform: 'Resideo', credentials: config.credentials, options: config.options }
-    this.getPlatformLogSettings()
+    this.config = {
+      platform: 'Resideo',
+      credentials: config.credentials,
+      options: config.options,
+    }
+
+    // Plugin Configuration
     this.getPlatformConfigSettings()
+    this.getPlatformRateSettings()
+    this.getPlatformLogSettings()
     this.getVersion()
+
+    // Finish initializing the platform
     this.debugLog(`Finished initializing platform: ${config.name}`)
 
     try {
@@ -767,36 +780,41 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformConfigSettings() {
-    const platformConfig: ResideoPlatformConfig['options'] = {}
     if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging
+      const platformConfig: ResideoPlatformConfig = {
+        platform: 'Resideo',
       }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.pushRate = this.config.options.pushRate
-      }
+      platformConfig.logging = this.config.options.logging ? this.config.options.logging : undefined
+      platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
+      platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
+      platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       if (Object.entries(platformConfig).length !== 0) {
-        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
+        await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }
       this.platformConfig = platformConfig
     }
   }
 
+  async getPlatformRateSettings() {
+    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : 0
+    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'refreshRate Disabled by Default'
+    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
+    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : 1
+    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Using Default updateRate'
+    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
+    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : 1
+    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Using Default pushRate'
+    await this.debugLog(`${pushRate}: ${this.platformPushRate}`)
+  }
+
   async getPlatformLogSettings() {
     this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
-    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
-      this.platformLogging = this.config.options.logging
-      await this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`)
-    } else if (this.debugMode) {
-      this.platformLogging = 'debugMode'
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`)
-    } else {
-      this.platformLogging = 'standard'
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`)
-    }
+    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+      || this.config.options?.logging === 'none')
+      ? this.config.options.logging
+      : this.debugMode ? 'debugMode' : 'standard'
+    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default'
+    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
   }
 
   /**
@@ -871,7 +889,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugSuccessLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.success('[DEBUG]', String(...log))
       }
     }
@@ -885,7 +903,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugWarnLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.warn('[DEBUG]', String(...log))
       }
     }
@@ -899,7 +917,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugErrorLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.error('[DEBUG]', String(...log))
       }
     }
@@ -915,7 +933,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async loggingIsDebug(): Promise<boolean> {
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug'
+  }
+
   async enablingPlatformLogging(): Promise<boolean> {
-    return this.platformLogging.includes('debug') ?? this.platformLogging === 'standard'
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug' || this.platformLogging === 'standard'
   }
 }
