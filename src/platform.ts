@@ -71,6 +71,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
     this.config = {
       platform: 'Resideo',
+      name: config.name,
       credentials: config.credentials,
       options: config.options,
     }
