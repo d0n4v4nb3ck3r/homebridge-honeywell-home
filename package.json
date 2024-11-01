@@ -81,7 +81,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.14",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.8.4",
+    "@types/node": "^22.8.6",
     "@types/semver": "^7.5.8",
     "@types/source-map-support": "^0.5.10",
     "@vitest/coverage-v8": "^2.1.4",
@@ -94,7 +94,7 @@
     "npm-check-updates": "^17.1.9",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.26.10",
+    "typedoc": "^0.26.11",
     "typescript": "^5.6.3",
     "typescript-axios-wb": "^1.0.3",
     "vitest": "^2.1.4"
