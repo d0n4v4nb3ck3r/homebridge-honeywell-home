@@ -8,6 +8,9 @@
     "name": "donavanbecker",
     "url": "https://github.com/donavanbecker"
   },
+  "maintainers": [
+    "donavanbecker"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -49,7 +52,6 @@
     "leak"
   ],
   "main": "dist/index.js",
-  "icon": "https://github.com/homebridge-plugins/homebridge-resideo/blob/latest/branding/icon.png?raw=true",
   "engines": {
     "homebridge": "^1.8.5 || ^2.0.0 || ^2.0.0-beta.23 || ^2.0.0-alpha.37",
     "node": "^20 || ^22"
@@ -85,7 +87,7 @@
     "@types/semver": "^7.5.8",
     "@types/source-map-support": "^0.5.10",
     "@vitest/coverage-v8": "^2.1.4",
-    "eslint": "^9.13.0",
+    "eslint": "^9.14.0",
     "eslint-plugin-format": "^0.1.2",
     "homebridge": "^1.8.5",
     "homebridge-config-ui-x": "4.62.0",
