@@ -63,6 +63,7 @@
                 "configDeviceName": {
                   "title": "Device Name",
                   "type": "string",
+                  "pattern": "^[a-zA-Z0-9]+([a-zA-Z0-9 ]*[a-zA-Z0-9]+)?$",
                   "placeholder": "Hallway Thermostat",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].deviceID);"
@@ -477,6 +478,11 @@
                 "enum": ["debug"]
               }
             ]
+          },
+          "allowInvalidCharacters": {
+            "title": "Allow Invalid Characters",
+            "type": "boolean",
+            "description": "If true, invalid characters will be allowed in the device name."
           }
         },
         "required": ["logging"]
@@ -597,7 +603,8 @@
           "key": "options.pushRate",
           "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the Resideo API.</em>"
         },
-        "options.logging"
+        "options.logging",
+        "options.allowInvalidCharacters"
       ]
     }
   ]

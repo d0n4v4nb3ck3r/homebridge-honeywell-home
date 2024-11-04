@@ -4,6 +4,6 @@ on: [pull_request]
 
 jobs:
   labeler:
-    uses: donavanbecker/.github/.github/workflows/labeler.yml@latest
+    uses: homebridge/.github/.github/workflows/labeler.yml@latest
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}

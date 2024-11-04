@@ -8,11 +8,11 @@ on:
 
 jobs:
   build_and_test:
-    uses: donavanbecker/.github/.github/workflows/nodejs-build-and-test.yml@latest
+    uses: homebridge/.github/.github/workflows/nodejs-build-and-test.yml@latest
     with:
-      enable_coverage: true
+      enable_coverage: false
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
   lint:
     needs: build_and_test
-    uses: donavanbecker/.github/.github/workflows/eslint.yml@latest
+    uses: homebridge/.github/.github/workflows/eslint.yml@latest

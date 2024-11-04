@@ -34,6 +34,8 @@ export const LocationURL = 'https://api.honeywell.com/v2/locations'
  */
 export const DeviceURL = 'https://api.honeywell.com/v2/devices'
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD'
+
 // Config
 export interface ResideoPlatformConfig extends PlatformConfig {
   credentials?: credentials
@@ -50,8 +52,10 @@ export interface credentials {
 }
 
 export interface options {
+  allowInvalidCharacters?: boolean
   logging?: string
   refreshRate?: number
+  updateRate?: number
   pushRate?: number
   devices?: devicesConfig[]
 }
@@ -59,7 +63,7 @@ export interface options {
 export interface devicesConfig extends resideoDevice {
   deviceID: string | number // Updated to handle both string and number
   deviceClass: string
-  userDefinedDeviceName: string
+  configDeviceName: string
   hide_device?: boolean
   thermostat?: thermostat
   valve?: valve
@@ -401,7 +405,7 @@ export interface accessoryValue {
 }
 
 // T9 Room Priority
-export interface Priority {
+export interface roomPriorityStatus {
   deviceId: string
   status: string
   currentPriority: CurrentPriority
@@ -464,4 +468,10 @@ export interface maintenance {
   antiScaleDOWSettings: string // 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday'
   antiScaleDOMSettings: number // If monthly anti - scale is used, day of the month.
   antiScaleTimeSettings: string // Time for anti - scale in 24 hrs format
+}
+
+export interface fanStatus {
+  changeableValues: {
+    mode: string
+  }
 }

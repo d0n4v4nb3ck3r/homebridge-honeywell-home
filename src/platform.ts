@@ -1,27 +1,28 @@
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 /* Copyright(C) 2022-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
  * platform.ts: homebridge-resideo.
  */
-import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory, UnknownContext } from 'homebridge'
+import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge'
 
 import type {
   accessoryAttribute,
   devicesConfig,
   location,
   locations,
+  options,
   resideoDevice,
   ResideoPlatformConfig,
   sensorAccessory,
+
   T9groups,
 } from './settings.js'
 
-import { Buffer } from 'node:buffer'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import process from 'node:process'
+import { argv } from 'node:process'
 import { stringify } from 'node:querystring'
 
-import { request } from 'undici'
+import axios from 'axios'
 
 import { LeakSensor } from './devices/leaksensors.js'
 import { RoomSensors } from './devices/roomsensors.js'
@@ -47,11 +48,18 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   locations?: locations
   sensorAccessory!: sensorAccessory
   firmware!: accessoryAttribute['softwareRevision']
-  platformConfig!: ResideoPlatformConfig['options']
-  platformLogging!: ResideoPlatformConfig['logging']
+  platformConfig!: ResideoPlatformConfig
+  platformLogging!: options['logging']
+  platformRefreshRate!: options['refreshRate']
+  platformPushRate!: options['pushRate']
+  platformUpdateRate!: options['updateRate']
   debugMode!: boolean
   version!: string
   action!: string
+
+  public axios: AxiosInstance = axios.create({
+    responseType: 'json',
+  })
 
   constructor(log: Logging, config: ResideoPlatformConfig, api: API) {
     this.api = api
@@ -61,10 +69,20 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       return
     }
 
-    this.config = { platform: 'Resideo', credentials: config.credentials, options: config.options }
+    this.config = {
+      platform: 'Resideo',
+      name: config.name,
+      credentials: config.credentials,
+      options: config.options,
+    }
+
+    // Plugin Configuration
     this.getPlatformLogSettings()
+    this.getPlatformRateSettings()
     this.getPlatformConfigSettings()
     this.getVersion()
+
+    // Finish initializing the platform
     this.debugLog(`Finished initializing platform: ${config.name}`)
 
     try {
@@ -75,6 +93,15 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.apiError(e)
       return
     }
+
+    // setup axios interceptor to add headers / api key to each request
+    this.axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
+      request.headers!.Authorization = `Bearer ${this.config.credentials?.accessToken}`
+      request.params = request.params || {}
+      request.params.apikey = this.config.credentials?.consumerKey
+      request.headers!['Content-Type'] = 'application/json'
+      return request
+    })
 
     this.api.on('didFinishLaunching', async () => {
       this.debugLog('Executed didFinishLaunching callback')
@@ -149,25 +176,33 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   async getAccessToken() {
     try {
       let result: any
-      if (this.config.credentials?.consumerSecret) {
-        const { body } = await request(TokenURL, {
-          method: 'POST',
-          body: stringify({
-            grant_type: 'refresh_token',
-            refresh_token: this.config.credentials!.refreshToken,
-          }),
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${Buffer.from(`${this.config.credentials?.consumerKey}:${this.config.credentials?.consumerSecret}`).toString('base64')}`,
-          },
-        })
-        result = await body.json()
+
+      if (this.config.credentials!.consumerSecret && this.config.credentials?.consumerKey && this.config.credentials?.refreshToken) {
+        result = (
+          await axios({
+            url: TokenURL,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            auth: {
+              username: this.config.credentials.consumerKey,
+              password: this.config.credentials.consumerSecret,
+            },
+            data: stringify({
+              grant_type: 'refresh_token',
+              refresh_token: this.config.credentials.refreshToken,
+            }),
+            responseType: 'json',
+          })
+        ).data
       } else {
         this.warnLog('Please re-link your account in the Homebridge UI.')
       }
 
       this.config.credentials!.accessToken = result.access_token
       this.debugLog(`Got access token: ${this.config.credentials!.accessToken}`)
+      // check if the refresh token has changed
       if (result.refresh_token !== this.config.credentials!.refreshToken) {
         this.debugLog(`New refresh token: ${result.refresh_token}`)
         await this.updateRefreshToken(result.refresh_token)
@@ -209,34 +244,21 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  public async discoverlocations(): Promise<location[]> {
-    this.debugLog(`accessToken: ${this.config.credentials?.accessToken}, consumerKey: ${this.config.credentials?.consumerKey}`)
-    const { body } = await request(LocationURL, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-    const locations = await body.json() as location[]
-    this.debugLog(`(discoverlocations) Location: ${JSON.stringify(locations)}`)
-    return locations // Ensure this returns an array
+  async discoverlocations(): Promise<location[]> {
+    const locations = (await this.axios.get(LocationURL)).data
+    return locations
   }
 
   public async getCurrentSensorData(location: location, device: resideoDevice & devicesConfig, group: T9groups) {
     if (!this.sensorData[device.deviceID] || this.sensorData[device.deviceID].timestamp < Date.now()) {
-      const { body } = await request(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.config.credentials?.accessToken}`,
-          'Content-Type': 'application/json',
+      const response: any = await this.axios.get(`${DeviceURL}/thermostats/${device.deviceID}/group/${group.id}/rooms`, {
+        params: {
+          locationId: location.locationID,
         },
-        query: { locationId: location.locationID },
       })
-      const response = await body.json()
       this.sensorData[device.deviceID] = {
         timestamp: Date.now() + 45000,
-        data: this.normalizeSensorDate((response as { data: any }).data),
+        data: this.normalizeSensorDate(response.data),
       }
       this.debugLog(`getCurrentSensorData ${device.deviceType} ${device.deviceModel}: ${this.sensorData[device.deviceID]}`)
     } else {
@@ -377,7 +399,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         await this.thermostatFirmwareExistingAccessory(device, existingAccessory, location)
         existingAccessory.context.device = device
         existingAccessory.context.deviceID = device.deviceID
@@ -394,6 +418,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
       await this.thermostatFirmwareNewAccessory(device, accessory, location)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceModel
@@ -413,7 +440,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         existingAccessory.context.deviceID = device.deviceID
         existingAccessory.context.model = device.deviceClass
         this.leaksensorFirmwareExistingAccessory(device, existingAccessory)
@@ -428,6 +457,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`)
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceClass
@@ -449,7 +481,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} DeviceID: ${device.deviceID}`)
-        existingAccessory.displayName = device.userDefinedDeviceName
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
         existingAccessory.context.deviceID = device.deviceID
         existingAccessory.context.model = device.deviceClass
         this.valveFirmwareExistingAccessory(device, existingAccessory)
@@ -464,6 +498,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${device.userDefinedDeviceName} ${device.deviceClass} Device ID: ${device.deviceID}`)
       }
       const accessory = new this.api.platformAccessory(device.userDefinedDeviceName, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(device.userDefinedDeviceName, 'userDefinedDeviceName', device.userDefinedDeviceName)
       accessory.context.device = device
       accessory.context.deviceID = device.deviceID
       accessory.context.model = device.deviceClass
@@ -484,7 +521,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
-        existingAccessory.displayName = sensorAccessory.accessoryAttribute.name
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
         existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory)
@@ -499,6 +538,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Device ID: ${sensorAccessory.accessoryAttribute.serialNumber}`)
       }
       const accessory = new this.api.platformAccessory(sensorAccessory.accessoryAttribute.name, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
       accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
       accessory.context.model = sensorAccessory.accessoryAttribute.model
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory)
@@ -518,7 +560,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
       if (await this.registerDevice(device)) {
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
-        existingAccessory.displayName = sensorAccessory.accessoryAttribute.name
+        existingAccessory.displayName = device.configDeviceName
+          ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+          : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
         existingAccessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
         existingAccessory.context.model = sensorAccessory.accessoryAttribute.model
         this.roomsensorFirmwareExistingAccessory(existingAccessory, sensorAccessory)
@@ -533,6 +577,9 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
         this.infoLog(`Adding new accessory: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}`)
       }
       const accessory = new this.api.platformAccessory(sensorAccessory.accessoryAttribute.name, uuid)
+      accessory.displayName = device.configDeviceName
+        ? await this.validateAndCleanDisplayName(device.configDeviceName, 'configDeviceName', device.userDefinedDeviceName)
+        : await this.validateAndCleanDisplayName(sensorAccessory.accessoryAttribute.name, 'accessoryAttributeName', sensorAccessory.accessoryAttribute.name)
       accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
       accessory.context.model = sensorAccessory.accessoryAttribute.model
       this.roomsensorFirmwareNewAccessory(accessory, sensorAccessory)
@@ -734,48 +781,95 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformConfigSettings() {
-    const platformConfig: ResideoPlatformConfig['options'] = {}
     if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging
+      const platformConfig: ResideoPlatformConfig = {
+        platform: 'Resideo',
       }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.pushRate = this.config.options.pushRate
-      }
+      platformConfig.logging = this.config.options.logging ? this.config.options.logging : undefined
+      platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
+      platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
+      platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       if (Object.entries(platformConfig).length !== 0) {
-        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
+        await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }
       this.platformConfig = platformConfig
     }
   }
 
+  async getPlatformRateSettings() {
+    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : 0
+    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'refreshRate Disabled by Default'
+    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
+    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : 1
+    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Using Default updateRate'
+    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
+    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : 1
+    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Using Default pushRate'
+    await this.debugLog(`${pushRate}: ${this.platformPushRate}`)
+  }
+
   async getPlatformLogSettings() {
-    this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug')
-    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
-      this.platformLogging = this.config.options.logging
-      await this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`)
-    } else if (this.debugMode) {
-      this.platformLogging = 'debugMode'
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`)
+    this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
+    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+      || this.config.options?.logging === 'none')
+      ? this.config.options.logging
+      : this.debugMode ? 'debugMode' : 'standard'
+    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default'
+    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
+  }
+
+  /**
+   * Asynchronously retrieves the version of the plugin from the package.json file.
+   *
+   * This method reads the package.json file located in the parent directory,
+   * parses its content to extract the version, and logs the version using the debug logger.
+   * The extracted version is then assigned to the `version` property of the class.
+   *
+   * @returns {Promise<void>} A promise that resolves when the version has been retrieved and logged.
+   */
+  async getVersion(): Promise<void> {
+    const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
+    this.debugLog(`Plugin Version: ${version}`)
+    this.version = version
+  }
+
+  /**
+   * Validate and clean a string value for a Name Characteristic.
+   * @param displayName - The display name of the accessory.
+   * @param name - The name of the characteristic.
+   * @param value - The value to be validated and cleaned.
+   * @returns The cleaned string value.
+   */
+  async validateAndCleanDisplayName(displayName: string, name: string, value: string): Promise<string> {
+    if (this.config.options?.allowInvalidCharacters) {
+      return value
     } else {
-      this.platformLogging = 'standard'
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`)
+      const validPattern = /^[\p{L}\p{N}][\p{L}\p{N} ']*[\p{L}\p{N}]$/u
+      const invalidCharsPattern = /[^\p{L}\p{N} ']/gu
+      const invalidStartEndPattern = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu
+
+      if (typeof value === 'string' && !validPattern.test(value)) {
+        this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric, space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may prevent the accessory from being added in the Home App or cause unresponsiveness.`)
+
+        // Remove invalid characters
+        if (invalidCharsPattern.test(value)) {
+          const before = value
+          this.warnLog(`Removing invalid characters from '${name}' characteristic, if you feel this is incorrect,  please enable \'allowInvalidCharacter\' in the config to allow all characters`)
+          value = value.replace(invalidCharsPattern, '')
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`)
+        }
+
+        // Ensure it starts and ends with an alphanumeric character
+        if (invalidStartEndPattern.test(value)) {
+          const before = value
+          this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic, if you feel this is incorrect, please enable \'allowInvalidCharacter\' in the config to allow all characters`)
+          value = value.replace(invalidStartEndPattern, '')
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`)
+        }
+      }
+
+      return value
     }
-  }
-
-  public async makeRequest(url: string, options: any): Promise<any> {
-    const { body, statusCode } = await request(url, options)
-    const data = await body.json()
-    return { data, statusCode }
-  }
-
-  async getVersion() {
-    const json = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf-8'))
-    this.debugLog(`Plugin Version: ${json.version}`)
-    this.version = json.version
   }
 
   /**
@@ -796,7 +890,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugSuccessLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.success('[DEBUG]', String(...log))
       }
     }
@@ -810,7 +904,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugWarnLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.warn('[DEBUG]', String(...log))
       }
     }
@@ -824,7 +918,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async debugErrorLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.error('[DEBUG]', String(...log))
       }
     }
@@ -840,7 +934,11 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async loggingIsDebug(): Promise<boolean> {
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug'
+  }
+
   async enablingPlatformLogging(): Promise<boolean> {
-    return this.platformLogging.includes('debug') ?? this.platformLogging === 'standard'
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug' || this.platformLogging === 'standard'
   }
 }

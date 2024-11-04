@@ -50,26 +50,26 @@ export abstract class deviceBase {
   }
 
   async getDeviceLogSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
-    this.deviceLogging = this.platform.debugMode ? 'debugMode' : device.logging ?? this.config.logging ?? 'standard'
-    const logging = this.platform.debugMode ? 'Debug Mode' : device.logging ? 'Device Config' : this.config.logging ? 'Platform Config' : 'Default'
+    this.deviceLogging = this.platform.debugMode ? 'debugMode' : device.logging ?? this.platform.platformLogging ?? 'standard'
+    const logging = this.platform.debugMode ? 'Debug Mode' : device.logging ? 'Device Config' : this.platform.platformLogging ? 'Platform Config' : 'Default'
     accessory.context.deviceLogging = this.deviceLogging
     await this.debugLog(`Using ${logging} Logging: ${this.deviceLogging}`)
   }
 
   async getDeviceRateSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
     // refreshRate
-    this.deviceRefreshRate = device.thermostat?.roomsensor?.refreshRate ?? device.thermostat?.roompriority?.refreshRate ?? device.refreshRate ?? this.config.options?.refreshRate ?? 120
+    this.deviceRefreshRate = device.thermostat?.roomsensor?.refreshRate ?? device.thermostat?.roompriority?.refreshRate ?? device.refreshRate ?? this.platform.platformRefreshRate ?? 120
     const refreshRate = device.thermostat?.roomsensor?.refreshRate
       ? 'Room Sensor Config'
       : device.thermostat?.roompriority?.refreshRate
         ? 'Room Priority Config'
         : device.refreshRate
           ? 'Device Config'
-          : this.config.options?.refreshRate ? 'Platform Config' : 'Default'
+          : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     accessory.context.deviceRefreshRate = this.deviceRefreshRate
     // pushRate
-    this.devicePushRate = device.pushRate ?? this.config.options?.pushRate ?? 0.1
-    const pushRate = device.pushRate ? 'Device Config' : this.config.options?.pushRate ? 'Platform Config' : 'Default'
+    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 0.1
+    const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}, ${pushRate} pushRate: ${this.devicePushRate}`)
     accessory.context.devicePushRate = this.devicePushRate
   }

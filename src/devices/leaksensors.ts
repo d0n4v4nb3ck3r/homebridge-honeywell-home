@@ -11,7 +11,6 @@ import { interval, Subject } from 'rxjs'
 import { skipWhile, take } from 'rxjs/operators'
 
 import { DeviceURL } from '../settings.js'
-// import { request } from 'undici';
 import { deviceBase } from './device.js'
 
 /**
@@ -48,7 +47,7 @@ export class LeakSensor extends deviceBase {
     CurrentTemperature: CharacteristicValue
   }
 
-  // Updates
+  // Sensor Update
   SensorUpdateInProgress!: boolean
   doSensorUpdate!: Subject<void>
 
@@ -193,7 +192,7 @@ export class LeakSensor extends deviceBase {
     this.updateHomeKitCharacteristics()
 
     // Start an update interval
-    interval(this.config.options!.refreshRate! * 1000)
+    interval(this.deviceRefreshRate * 1000)
       .pipe(skipWhile(() => this.SensorUpdateInProgress))
       .subscribe(async () => {
         await this.refreshStatus()
@@ -203,48 +202,48 @@ export class LeakSensor extends deviceBase {
   /**
    * Parse the device status from the Resideo api
    */
-  async parseStatus(device: resideoDevice & devicesConfig): Promise<void> {
+  async parseStatus(): Promise<void> {
     // Battery Service
-    this.Battery.BatteryLevel = Number(device.batteryRemaining)
+    this.Battery.BatteryLevel = Number(this.device.batteryRemaining)
     this.Battery.Service.getCharacteristic(this.hap.Characteristic.BatteryLevel).updateValue(this.Battery.BatteryLevel)
     if (this.device.batteryRemaining < 15) {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
     } else {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
     }
-    this.debugLog(`${device.deviceClass} ${this.accessory.displayName} BatteryLevel: ${this.Battery.BatteryLevel}, StatusLowBattery: ${this.Battery.StatusLowBattery}`)
+    this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} BatteryLevel: ${this.Battery.BatteryLevel}, StatusLowBattery: ${this.Battery.StatusLowBattery}`)
 
     // LeakSensor Service
-    if (!device.leaksensor?.hide_leak) {
+    if (!this.device.leaksensor?.hide_leak) {
       if (this.LeakSensor) {
         // Active
-        this.LeakSensor.StatusActive = device.hasDeviceCheckedIn
+        this.LeakSensor.StatusActive = this.device.hasDeviceCheckedIn
 
         // LeakDetected
-        if (device.waterPresent === true) {
+        if (this.device.waterPresent === true) {
           this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_DETECTED
         } else {
           this.LeakSensor.LeakDetected = this.hap.Characteristic.LeakDetected.LEAK_NOT_DETECTED
         }
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} StatusActive: ${this.LeakSensor.StatusActive}, LeakDetected: ${this.LeakSensor.LeakDetected}`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} StatusActive: ${this.LeakSensor.StatusActive}, LeakDetected: ${this.LeakSensor.LeakDetected}`)
       }
     }
 
-    const currentSensorReadings = device.currentSensorReadings as CurrentSensorReadings ?? { temperature: 20, humidity: 50 }
+    const currentSensorReadings = this.device.currentSensorReadings as CurrentSensorReadings ?? { temperature: 20, humidity: 50 }
 
     // Temperature Service
-    if (!device.leaksensor?.hide_temperature) {
+    if (!this.device.leaksensor?.hide_temperature) {
       if (this.TemperatureSensor) {
         this.TemperatureSensor.CurrentTemperature = currentSensorReadings.temperature
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} CurrentTemperature: ${this.TemperatureSensor.CurrentTemperature}°`)
       }
     }
 
     // Humidity Service
-    if (!device.leaksensor?.hide_humidity) {
+    if (!this.device.leaksensor?.hide_humidity) {
       if (this.HumiditySensor) {
         this.HumiditySensor.CurrentRelativeHumidity = currentSensorReadings.humidity
-        this.debugLog(`${device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`)
+        this.debugLog(`${this.device.deviceClass} ${this.accessory.displayName} CurrentRelativeHumidity: ${this.HumiditySensor.CurrentRelativeHumidity}%`)
       }
     }
   }
@@ -254,17 +253,16 @@ export class LeakSensor extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      const device: any = await this.platform.makeRequest(
-        `${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`,
-        {
-          method: 'GET',
+      const device: any = (
+        await this.platform.axios.get(`${DeviceURL}/waterLeakDetectors/${this.device.deviceID}`, {
           params: {
             locationId: this.location.locationID,
           },
-        },
-      )
+        })
+      ).data
       this.debugLog(`(refreshStatus) ${device.deviceClass} device: ${JSON.stringify(device)}`)
-      await this.parseStatus(device)
+      this.device = device
+      await this.parseStatus()
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
       const action = 'refreshStatus'
