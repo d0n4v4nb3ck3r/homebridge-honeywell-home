@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## [2.1.7](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.7) (2024-XX-XX)
+## [2.1.7](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.7) (2024-11-03)
 
 ### What's Changes
 - Revert to using `axios` instead of `undici`
