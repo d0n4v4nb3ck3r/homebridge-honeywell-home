@@ -16,7 +16,9 @@ export abstract class deviceBase {
   // Config
   protected deviceLogging!: string
   protected deviceRefreshRate!: number
+  protected deviceUpdateRate!: number
   protected devicePushRate!: number
+  protected deviceFirmwareVersion!: string
   protected deviceMaxRetries!: number
   protected deviceDelayBetweenRetries!: number
 
@@ -33,9 +35,8 @@ export abstract class deviceBase {
     this.config = this.platform.config
     this.hap = this.api.hap
 
-    this.getDeviceLogSettings(accessory, device)
-    this.getDeviceRateSettings(accessory, device)
-    this.getDeviceRetry(device)
+    this.getDeviceLogSettings(device)
+    this.getDeviceRateSettings(device)
     this.getDeviceConfigSettings(device)
     this.getDeviceContext(accessory, device, sensorAccessory)
 
@@ -43,44 +44,40 @@ export abstract class deviceBase {
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
       .setCharacteristic(this.hap.Characteristic.Manufacturer, 'Resideo')
-      .setCharacteristic(this.hap.Characteristic.Name, accessory.context.name)
-      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.name)
+      .setCharacteristic(this.hap.Characteristic.Name, accessory.displayName)
+      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.displayName)
       .setCharacteristic(this.hap.Characteristic.Model, accessory.context.model)
       .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.deviceID)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(this.deviceFirmwareVersion)
   }
 
-  async getDeviceLogSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
+  async getDeviceLogSettings(device: resideoDevice & devicesConfig): Promise<void> {
     this.deviceLogging = this.platform.debugMode ? 'debugMode' : device.logging ?? this.platform.platformLogging ?? 'standard'
     const logging = this.platform.debugMode ? 'Debug Mode' : device.logging ? 'Device Config' : this.platform.platformLogging ? 'Platform Config' : 'Default'
-    accessory.context.deviceLogging = this.deviceLogging
     await this.debugLog(`Using ${logging} Logging: ${this.deviceLogging}`)
   }
 
-  async getDeviceRateSettings(accessory: PlatformAccessory, device: resideoDevice & devicesConfig): Promise<void> {
+  async getDeviceRateSettings(device: resideoDevice & devicesConfig): Promise<void> {
     // refreshRate
     this.deviceRefreshRate = device.thermostat?.roomsensor?.refreshRate ?? device.thermostat?.roompriority?.refreshRate ?? device.refreshRate ?? this.platform.platformRefreshRate ?? 120
-    const refreshRate = device.thermostat?.roomsensor?.refreshRate
-      ? 'Room Sensor Config'
-      : device.thermostat?.roompriority?.refreshRate
-        ? 'Room Priority Config'
-        : device.refreshRate
-          ? 'Device Config'
-          : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
-    accessory.context.deviceRefreshRate = this.deviceRefreshRate
+    const refreshRate = device.thermostat?.roomsensor?.refreshRate ? 'Room Sensor Config' : device.thermostat?.roompriority?.refreshRate ? 'Room Priority Config' : device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
+    // updateRate
+    this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
+    const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
     // pushRate
     this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 0.1
     const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
-    await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}, ${pushRate} pushRate: ${this.devicePushRate}`)
-    accessory.context.devicePushRate = this.devicePushRate
-  }
-
-  async getDeviceRetry(device: resideoDevice & devicesConfig): Promise<void> {
-    this.deviceMaxRetries = device.maxRetries ?? 5
-    const maxRetries = device.maxRetries ? 'Device Config' : 'Default'
+    await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}, ${updateRate} updateRate: ${this.deviceUpdateRate}, ${pushRate} pushRate: ${this.devicePushRate}`)
+    // maxRetries
+    this.deviceMaxRetries = device.maxRetries ?? this.platform.platformMaxRetries ?? 5
+    const maxRetries = device.maxRetries ? 'Device Config' : this.platform.platformMaxRetries ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${maxRetries} maxRetries: ${this.deviceMaxRetries}`)
-    this.deviceDelayBetweenRetries = device.delayBetweenRetries ?? 3
+    // delayBetweenRetries
+    this.deviceDelayBetweenRetries = device.delayBetweenRetries ?? this.platform.platformDelayBetweenRetries ?? 3
     this.deviceDelayBetweenRetries = this.deviceDelayBetweenRetries * 1000
-    const delayBetweenRetries = device.delayBetweenRetries ? 'Device Config' : 'Default'
+    const delayBetweenRetries = device.delayBetweenRetries ? 'Device Config' : this.platform.platformDelayBetweenRetries ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${delayBetweenRetries} delayBetweenRetries: ${this.deviceDelayBetweenRetries}`)
   }
 
@@ -89,6 +86,7 @@ export abstract class deviceBase {
     const properties = [
       'logging',
       'refreshRate',
+      'updateRate',
       'pushRate',
       'external',
       'retry',
@@ -100,9 +98,6 @@ export abstract class deviceBase {
         deviceConfig[prop] = device[prop]
       }
     })
-    if (Object.keys(deviceConfig).length !== 0) {
-      this.infoLog(`Config: ${JSON.stringify(deviceConfig)}`)
-    }
     let thermostatConfig = {}
     if (device.thermostat) {
       thermostatConfig = device.thermostat
@@ -117,46 +112,41 @@ export abstract class deviceBase {
     }
     const config = Object.assign({}, deviceConfig, thermostatConfig, leaksensorConfig, valveConfig)
     if (Object.entries(config).length !== 0) {
-      this.debugSuccessLog(`${this.device.deviceClass}: ${this.accessory.displayName} Config: ${JSON.stringify(config)}`)
+      this.debugSuccessLog(`Config: ${JSON.stringify(config)}`)
     }
   }
 
   async getDeviceContext(accessory: PlatformAccessory, device: resideoDevice & devicesConfig, sensorAccessory?: sensorAccessory): Promise<void> {
+    // Context Information
     if (sensorAccessory?.accessoryAttribute) {
-      accessory.context.name = sensorAccessory.accessoryAttribute.name
       accessory.context.model = sensorAccessory.accessoryAttribute.model
       accessory.context.deviceID = sensorAccessory.accessoryAttribute.serialNumber
       accessory.context.deviceType = sensorAccessory.accessoryAttribute.type
     } else if (device.deviceClass) {
-      accessory.context.name = device.userDefinedDeviceName ?? device.name
       accessory.context.model = device.deviceClass ?? device.deviceModel
       accessory.context.deviceID = device.deviceID
       accessory.context.deviceType = device.deviceType
     }
-
-    // Firmware Version
-    const deviceFirmwareVersion = sensorAccessory?.accessoryAttribute.softwareRevision ?? device.firmware ?? device.firmwareVersion
-      ?? device.thermostatVersion ?? accessory.context.version ?? this.platform.version ?? '0.0.0'
+    // FirmwareRevision
+    const deviceFirmwareVersion = device.firmware ?? sensorAccessory?.accessoryAttribute.softwareRevision ?? device.firmwareVersion ?? device.thermostatVersion ?? this.platform.version ?? '0.0.0'
     const version = deviceFirmwareVersion.toString()
-    this.debugLog(`${this.device.deviceType}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`)
-    let deviceVersion: string
+    this.debugLog(`Firmware Version: ${version.replace(/^V|-.*$/g, '')}`)
     if (version?.includes('.') === false) {
       const replace = version?.replace(/^V|-.*$/g, '')
       const match = replace?.match(/./g)
       const validVersion = match?.join('.')
-      deviceVersion = validVersion ?? '0.0.0'
+      this.deviceFirmwareVersion = validVersion ?? '0.0.0'
     } else {
-      deviceVersion = version?.replace(/^V|-.*$/g, '') ?? '0.0.0'
+      this.deviceFirmwareVersion = version.replace(/^V|-.*$/g, '') ?? '0.0.0'
     }
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.HardwareRevision, deviceVersion)
-      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, deviceVersion)
-      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, deviceVersion)
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
       .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-      .updateValue(deviceVersion)
-    accessory.context.deviceVersion = deviceVersion
-    this.debugSuccessLog(`${device.deviceType}: ${accessory.displayName} deviceVersion: ${accessory.context.deviceVersion}`)
+      .updateValue(this.deviceFirmwareVersion)
+    this.debugSuccessLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
   }
 
   async statusCode(statusCode: number, action: string): Promise<void> {

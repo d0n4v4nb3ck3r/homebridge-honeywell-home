@@ -54,6 +54,8 @@ export interface credentials {
 export interface options {
   allowInvalidCharacters?: boolean
   logging?: string
+  maxRetries?: number
+  delayBetweenRetries?: number
   refreshRate?: number
   updateRate?: number
   pushRate?: number
@@ -71,6 +73,7 @@ export interface devicesConfig extends resideoDevice {
   external?: boolean
   logging?: string
   refreshRate?: number
+  updateRate?: number
   pushRate?: number
   maxRetries?: number
   delayBetweenRetries?: number

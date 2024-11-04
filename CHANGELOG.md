@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [2.1.8](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.8) (2024-11-04)
+
+### What's Changes
+- Fix refreshRate Issue
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-resideo/compare/v2.1.7...v2.1.8
+
 ## [2.1.7](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v2.1.7) (2024-11-03)
 
 ### What's Changes

@@ -53,6 +53,8 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   platformRefreshRate!: options['refreshRate']
   platformPushRate!: options['pushRate']
   platformUpdateRate!: options['updateRate']
+  platformMaxRetries: options['maxRetries']
+  platformDelayBetweenRetries: options['delayBetweenRetries']
   debugMode!: boolean
   version!: string
   action!: string
@@ -780,6 +782,39 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async getPlatformLogSettings() {
+    this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
+    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+      || this.config.options?.logging === 'none')
+      ? this.config.options.logging
+      : this.debugMode ? 'debugMode' : 'standard'
+    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default'
+    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
+  }
+
+  async getPlatformRateSettings() {
+    // RefreshRate
+    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : undefined
+    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'Platform Config refreshRate Not Set'
+    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
+    // UpdateRate
+    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : undefined
+    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Platform Config updateRate Not Set'
+    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
+    // PushRate
+    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : undefined
+    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Platform Config pushRate Not Set'
+    await this.debugLog(`${pushRate}: ${this.platformPushRate}`)
+    // MaxRetries
+    this.platformMaxRetries = this.config.options?.maxRetries ? this.config.options.maxRetries : undefined
+    const maxRetries = this.config.options?.maxRetries ? 'Using Platform Config maxRetries' : 'Platform Config maxRetries Not Set'
+    await this.debugLog(`${maxRetries}: ${this.platformMaxRetries}`)
+    // DelayBetweenRetries
+    this.platformDelayBetweenRetries = this.config.options?.delayBetweenRetries ? this.config.options.delayBetweenRetries : undefined
+    const delayBetweenRetries = this.config.options?.delayBetweenRetries ? 'Using Platform Config delayBetweenRetries' : 'Platform Config delayBetweenRetries Not Set'
+    await this.debugLog(`${delayBetweenRetries}: ${this.platformDelayBetweenRetries}`)
+  }
+
   async getPlatformConfigSettings() {
     if (this.config.options) {
       const platformConfig: ResideoPlatformConfig = {
@@ -789,33 +824,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
+      platformConfig.maxRetries = this.config.options.maxRetries ? this.config.options.maxRetries : undefined
+      platformConfig.delayBetweenRetries = this.config.options.delayBetweenRetries ? this.config.options.delayBetweenRetries : undefined
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }
       this.platformConfig = platformConfig
     }
-  }
-
-  async getPlatformRateSettings() {
-    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : 0
-    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'refreshRate Disabled by Default'
-    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
-    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : 1
-    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Using Default updateRate'
-    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
-    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : 1
-    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Using Default pushRate'
-    await this.debugLog(`${pushRate}: ${this.platformPushRate}`)
-  }
-
-  async getPlatformLogSettings() {
-    this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
-    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
-      || this.config.options?.logging === 'none')
-      ? this.config.options.logging
-      : this.debugMode ? 'debugMode' : 'standard'
-    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default'
-    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
   }
 
   /**
