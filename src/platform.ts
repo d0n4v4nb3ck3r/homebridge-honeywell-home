@@ -310,9 +310,18 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
           this.infoLog(`Total Devices Found at ${location.name}: ${location.devices.length}`)
           const deviceLists = location.devices
           const devices = this.config.options?.devices
-            ? this.mergeByDeviceID(deviceLists.map(device => ({ ...device, deviceID: String(device.deviceID) })), this.config.options.devices)
+            ? this.mergeByDeviceID(deviceLists.map((device) => {
+                const deviceID = String(device.deviceID).trim()
+                this.debugLog(`Device List deviceID: ${deviceID}`)
+                return { ...device, deviceID }
+              }), this.config.options.devices.map((device) => {
+                const deviceID = String(device.deviceID).trim()
+                this.debugLog(`Config deviceID: ${deviceID}`)
+                return { ...device, deviceID }
+              }))
             : deviceLists.map((v: any) => v)
           for (const device of devices) {
+            this.debugLog(`Discovered Device with Config: ${JSON.stringify(device)}`)
             await this.deviceClass(location, device)
           }
         }
@@ -326,10 +335,18 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
   }
 
   private mergeByDeviceID(a1: { deviceID: string }[], a2: any[]) {
-    return a1.map((itm: { deviceID: string }) => ({
-      ...a2.find((item: { deviceID: string }) => item.deviceID === itm.deviceID && item),
-      ...itm,
-    }))
+    return a1.map((itm: { deviceID: string }) => {
+      const match = a2.find((item: { deviceID: string }) => item.deviceID === itm.deviceID)
+      if (match) {
+        this.debugLog(`Merging deviceID: ${itm.deviceID}`)
+      } else {
+        this.debugLog(`No match found for deviceID: ${itm.deviceID}`)
+      }
+      return {
+        ...match,
+        ...itm,
+      }
+    })
   }
 
   private async deviceClass(location: location, device: resideoDevice & devicesConfig) {
@@ -551,7 +568,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory)
       this.accessories.push(accessory)
     } else {
-      this.errorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`)
+      this.debugErrorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`)
     }
   }
 
@@ -596,13 +613,13 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
 
   async registerDevice(device: resideoDevice & devicesConfig) {
     let registerDevice: boolean
-    this.debugLog(`Device: ${device.userDefinedDeviceName} hide_roomsensor: ${device.thermostat?.roomsensor?.hide_roomsensor}, roompriority: ${device.thermostat?.roompriority?.deviceType}, hide_device: ${device.hide_device}`)
-    if (!device.thermostat?.roomsensor?.hide_roomsensor) {
+    this.debugLog(`Device: ${device.userDefinedDeviceName} hide_device: ${device.hide_device}${device.deviceClass === 'Thermostat' ? `, hide_roomsensor: ${device.thermostat?.roomsensor?.hide_roomsensor}, roompriority: ${device.thermostat?.roompriority?.deviceType}` : ''}`)
+    if (!device.thermostat?.roomsensor?.hide_roomsensor && device.deviceClass === 'Thermostat' && !device.hide_device) {
       registerDevice = true
-      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`)
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}, hide_roomsensor: ${device.thermostat?.roomsensor?.hide_roomsensor}`)
     } else if (device.thermostat?.roompriority?.deviceType) {
       registerDevice = true
-      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`)
+      this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}, roompriority: ${device.thermostat?.roompriority?.deviceType}`)
     } else if (!device.hide_device) {
       registerDevice = true
       this.debugSuccessLog(`Device: ${device.userDefinedDeviceName} deviceID: ${device.deviceID}, registerDevice: ${registerDevice}`)
