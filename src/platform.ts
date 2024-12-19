@@ -568,7 +568,7 @@ export class ResideoPlatform implements DynamicPlatformPlugin {
       this.externalOrPlatform(device, accessory)
       this.accessories.push(accessory)
     } else {
-      this.errorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`)
+      this.debugErrorLog(`Unable to Register new device: ${sensorAccessory.accessoryAttribute.name} ${sensorAccessory.accessoryAttribute.type} Serial Number: ${sensorAccessory.accessoryAttribute.serialNumber}, Check Config to see if DeviceID is being Hidden.`)
     }
   }
 
