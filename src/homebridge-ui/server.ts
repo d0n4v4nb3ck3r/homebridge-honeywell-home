@@ -14,7 +14,7 @@ interface CustomRequestResponse {
   data?: any
 }
 
-class PluginUiServer extends HomebridgePluginUiServer {
+export class PluginUiServer extends HomebridgePluginUiServer {
   public key!: string
   public secret!: string
   public hostname!: string
