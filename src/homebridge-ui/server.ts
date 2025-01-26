@@ -14,7 +14,7 @@ interface CustomRequestResponse {
   data?: any
 }
 
-class PluginUiServer extends HomebridgePluginUiServer {
+export class PluginUiServer extends HomebridgePluginUiServer {
   public key!: string
   public secret!: string
   public hostname!: string
@@ -109,7 +109,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
     this.onRequest('/getCachedAccessories', async (): Promise<CustomRequestResponse> => {
       try {
         // Define the plugin and create the array to return
-        const plugin = 'homebridge-resideo'
+        const plugin = '@homebridge-plugins/homebridge-resideo'
         const devicesToReturn: any[] = []
 
         // The path and file of the cached accessories

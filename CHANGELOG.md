@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [3.0.1](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v3.0.1) (2025-01-25)
+
+### What's Changes
+- Housekeeping and updated dependencies.
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-resideo/compare/v3.0.0...v3.0.1
+
 ## [3.0.0](https://github.com/homebridge-plugins/homebridge-resideo/releases/tag/v3.0.0) (2025-01-16)
 
 ### What's Changes
