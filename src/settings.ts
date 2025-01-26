@@ -12,7 +12,7 @@ export const PLATFORM_NAME = 'Resideo'
 /**
  * This must match the name of your plugin as defined the package.json
  */
-export const PLUGIN_NAME = 'homebridge-resideo'
+export const PLUGIN_NAME = '@homebridge-plugins/homebridge-resideo'
 
 /**
  * This is the main url used to access Resideo API

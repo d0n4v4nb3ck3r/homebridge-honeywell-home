@@ -109,7 +109,7 @@ export class PluginUiServer extends HomebridgePluginUiServer {
     this.onRequest('/getCachedAccessories', async (): Promise<CustomRequestResponse> => {
       try {
         // Define the plugin and create the array to return
-        const plugin = 'homebridge-resideo'
+        const plugin = '@homebridge-plugins/homebridge-resideo'
         const devicesToReturn: any[] = []
 
         // The path and file of the cached accessories
